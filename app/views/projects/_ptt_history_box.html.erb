@@ -6,12 +6,13 @@
   base_query = @project.ptt_histories.sorted
   ptt_total_count = base_query.count
 
-  histories_to_show = ptt_show_all ? base_query.includes(:user) : base_query.includes(:user).limit(ptt_history_limit)
+  if ptt_total_count > 0
+    histories_to_show = ptt_show_all ? base_query.includes(:user) : base_query.includes(:user).limit(ptt_history_limit)
 
-  # Group history entries by timestamp (within 1 minute = same "journal")
-  grouped_histories = histories_to_show.group_by do |h|
-    [h.user_id, h.created_at.to_i / 60]
-  end
+    # Group history entries by timestamp (within 1 minute = same "journal")
+    grouped_histories = histories_to_show.group_by do |h|
+      [h.user_id, h.created_at.to_i / 60]
+    end
 %>
 
 <div id="ptt-history" class="box">
@@ -24,8 +25,7 @@
     <% end %>
   </h3>
 
-  <% if ptt_total_count > 0 %>
-    <% grouped_histories.each do |(user_id, time_key), entries| %>
+  <% grouped_histories.each do |(user_id, time_key), entries| %>
     <% entry = entries.first %>
     <div class="journal" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-left: 3px solid #ccc;">
       <div style="margin-bottom: 8px; color: #666;">
@@ -48,16 +48,15 @@
     </div>
   <% end %>
 
-    <% if ptt_total_count > ptt_history_limit %>
-      <p style="text-align: center; margin: 10px 0 0;">
-        <% if ptt_show_all %>
-          <%= link_to 'Показать последние', project_path(@project), class: 'icon icon-collapsed' %>
-        <% else %>
-          <%= link_to "Показать все #{ptt_total_count} изменений", project_path(@project, ptt_show_all_history: '1'), class: 'icon icon-expanded' %>
-        <% end %>
-      </p>
-    <% end %>
-  <% else %>
-    <p style="color: #999; font-style: italic;">Изменений пока нет</p>
+  <% if ptt_total_count > ptt_history_limit %>
+    <p style="text-align: center; margin: 10px 0 0;">
+      <% if ptt_show_all %>
+        <%= link_to 'Показать последние', project_path(@project), class: 'icon icon-collapsed' %>
+      <% else %>
+        <%= link_to "Показать все #{ptt_total_count} изменений", project_path(@project, ptt_show_all_history: '1'), class: 'icon icon-expanded' %>
+      <% end %>
+    </p>
   <% end %>
 </div>
+
+<% end %>
