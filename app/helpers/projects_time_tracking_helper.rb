@@ -374,6 +374,8 @@ module ProjectsTimeTrackingHelper
 
   # CPI status with icon and text
   def cpi_status(cpi)
+    return { icon: '⚪', text: 'Нет данных', color: nil } if cpi.nil?
+
     if cpi >= 1.0
       { icon: '🟢', text: 'Норма — работаем по плану или экономим', color: '#ccffcc' }
     elsif cpi >= 0.9
@@ -395,6 +397,8 @@ module ProjectsTimeTrackingHelper
 
   # Returns background color for metric based on value thresholds
   def metric_color(metric_name, value, metrics = nil)
+    return nil if value.nil?
+
     case metric_name
     when :progress
       nil
