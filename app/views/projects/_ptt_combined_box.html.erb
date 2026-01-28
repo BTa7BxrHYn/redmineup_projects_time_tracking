@@ -22,9 +22,9 @@
 
 <div style="display: flex; gap: 20px; align-items: stretch; margin-bottom: 20px;">
   <!-- Budget metrics box (left) -->
-  <div class="mypage-box" id="block-ptt-budget" style="flex: 1;">
-    <h3>Бюджет проекта</h3>
-    <ul class="dashboard-list">
+  <div class="mypage-box" id="block-ptt-budget" style="flex: 1; display: flex; flex-direction: column;">
+    <h3 style="flex-shrink: 0;">Бюджет проекта</h3>
+    <ul class="dashboard-list" style="flex: 1; margin: 0;">
       <li class="ptt_budget">
         <span class="label">Бюджет (B)</span>: <strong><%= format_metric_hours(ptt_budget) %></strong> ч
       </li>
@@ -61,8 +61,8 @@
   </div>
 
   <!-- History box (right) -->
-  <div class="mypage-box" id="block-ptt-history" style="flex: 1;">
-    <h3>
+  <div class="mypage-box" id="block-ptt-history" style="flex: 1; display: flex; flex-direction: column;">
+    <h3 style="flex-shrink: 0;">
       История изменений
       <% if ptt_total_count > ptt_history_limit && !ptt_show_all %>
         <span style="font-weight: normal; font-size: 0.85em; color: #666;">
@@ -70,39 +70,41 @@
         </span>
       <% end %>
     </h3>
-    <% if ptt_total_count > 0 %>
-      <% grouped_histories.each do |(user_id, time_key), entries| %>
-        <% entry = entries.first %>
-        <div style="margin-bottom: 10px; padding: 8px; background: #f9f9f9; border-left: 3px solid #ccc;">
-          <div style="margin-bottom: 5px; color: #666; font-size: 0.9em;">
-            <strong><%= link_to_user(entry.user) %></strong>
-            — <%= format_time(entry.created_at) %>
+    <div style="flex: 1; overflow-y: auto; min-height: 0;">
+      <% if ptt_total_count > 0 %>
+        <% grouped_histories.each do |(user_id, time_key), entries| %>
+          <% entry = entries.first %>
+          <div style="margin-bottom: 10px; padding: 8px; background: #f9f9f9; border-left: 3px solid #ccc;">
+            <div style="margin-bottom: 5px; color: #666; font-size: 0.9em;">
+              <strong><%= link_to_user(entry.user) %></strong>
+              — <%= format_time(entry.created_at) %>
+            </div>
+            <ul style="margin: 0; padding-left: 18px; font-size: 0.9em;">
+              <% entries.each do |h| %>
+                <li>
+                  <strong><%= h.field_label %></strong>:
+                  <% if h.old_value.present? %>
+                    <del style="color: #900; background: #fdd;"><%= h.formatted_old_value %></del> →
+                  <% end %>
+                  <ins style="color: #090; background: #dfd;"><%= h.formatted_new_value %></ins>
+                </li>
+              <% end %>
+            </ul>
           </div>
-          <ul style="margin: 0; padding-left: 18px; font-size: 0.9em;">
-            <% entries.each do |h| %>
-              <li>
-                <strong><%= h.field_label %></strong>:
-                <% if h.old_value.present? %>
-                  <del style="color: #900; background: #fdd;"><%= h.formatted_old_value %></del> →
-                <% end %>
-                <ins style="color: #090; background: #dfd;"><%= h.formatted_new_value %></ins>
-              </li>
+        <% end %>
+        <% if ptt_total_count > ptt_history_limit %>
+          <p style="text-align: center; margin: 5px 0 0;">
+            <% if ptt_show_all %>
+              <%= link_to 'Показать последние', project_path(@project), class: 'icon icon-collapsed' %>
+            <% else %>
+              <%= link_to "Все #{ptt_total_count} изменений", project_path(@project, ptt_show_all_history: '1'), class: 'icon icon-expanded' %>
             <% end %>
-          </ul>
-        </div>
+          </p>
+        <% end %>
+      <% else %>
+        <p style="color: #999; font-style: italic; margin: 10px 0;">Изменений пока нет</p>
       <% end %>
-      <% if ptt_total_count > ptt_history_limit %>
-        <p style="text-align: center; margin: 5px 0 0;">
-          <% if ptt_show_all %>
-            <%= link_to 'Показать последние', project_path(@project), class: 'icon icon-collapsed' %>
-          <% else %>
-            <%= link_to "Все #{ptt_total_count} изменений", project_path(@project, ptt_show_all_history: '1'), class: 'icon icon-expanded' %>
-          <% end %>
-        </p>
-      <% end %>
-    <% else %>
-      <p style="color: #999; font-style: italic; margin: 10px 0;">Изменений пока нет</p>
-    <% end %>
+    </div>
   </div>
 </div>
 
