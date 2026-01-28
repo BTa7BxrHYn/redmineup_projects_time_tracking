@@ -307,6 +307,8 @@ module ProjectsTimeTrackingHelper
 
   # Generates tooltip text for a specific metric
   def metric_tooltip(metric_name, metrics)
+    return 'Нет данных для расчёта' if metrics[:incomplete] && %i[cpi eac variance].include?(metric_name)
+
     raw = metrics[:raw]
     case metric_name
     when :progress
@@ -387,11 +389,15 @@ module ProjectsTimeTrackingHelper
 
   # Formats hours value for display
   def format_metric_hours(value)
+    return '—' if value.nil?
+
     number_with_precision(value, precision: 1, strip_insignificant_zeros: true)
   end
 
   # Formats percent value for display
   def format_metric_percent(value)
+    return '—' if value.nil?
+
     "#{number_with_precision(value, precision: 1)}%"
   end
 
