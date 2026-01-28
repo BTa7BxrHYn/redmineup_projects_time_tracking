@@ -1,30 +1,28 @@
-<table class="settings">
-  <tr>
-    <th><label for="settings_budget_custom_field_id">Поле бюджета проекта</label></th>
-    <td>
-      <select name="settings[budget_custom_field_id]" id="settings_budget_custom_field_id">
-        <option value="">-- Не выбрано --</option>
-        <% ProjectCustomField.where(field_format: ['float', 'int']).sorted.each do |cf| %>
-          <option value="<%= cf.id %>" <%= 'selected' if settings['budget_custom_field_id'].to_s == cf.id.to_s %>>
-            <%= cf.name %>
-          </option>
-        <% end %>
-      </select>
-    </td>
-  </tr>
-  <tr>
-    <th><label>Статусы "Закрыто"</label></th>
-    <td>
-      <% IssueStatus.sorted.each do |status| %>
-        <label style="display: block;">
-          <input type="checkbox"
-                 name="settings[closed_status_ids][]"
-                 value="<%= status.id %>"
-                 <%= 'checked' if Array(settings['closed_status_ids']).include?(status.id.to_s) %>>
-          <%= status.name %>
-        </label>
-      <% end %>
-      <input type="hidden" name="settings[closed_status_ids][]" value="">
-    </td>
-  </tr>
-</table>
+<p>
+  <label for="settings_budget_custom_field_id"><strong>Поле бюджета проекта:</strong></label><br>
+  <select name="settings[budget_custom_field_id]" id="settings_budget_custom_field_id">
+    <option value="">-- Не выбрано --</option>
+    <% ProjectCustomField.where(field_format: ['float', 'int']).sorted.each do |cf| %>
+      <option value="<%= cf.id %>" <%= 'selected' if settings['budget_custom_field_id'].to_s == cf.id.to_s %>>
+        <%= cf.name %>
+      </option>
+    <% end %>
+  </select>
+</p>
+
+<p>
+  <label><strong>Статусы "Закрыто":</strong></label><br>
+  <% IssueStatus.sorted.each do |status| %>
+    <label class="floating">
+      <%= check_box_tag 'settings[closed_status_ids][]', status.id,
+          Array(settings['closed_status_ids']).map(&:to_s).include?(status.id.to_s),
+          id: "settings_closed_status_ids_#{status.id}" %>
+      <%= status.name %>
+    </label>
+  <% end %>
+  <%= hidden_field_tag 'settings[closed_status_ids][]', '' %>
+</p>
+
+<style>
+  label.floating { display: inline-block; margin-right: 15px; white-space: nowrap; }
+</style>
