@@ -1,3 +1,18 @@
+<%
+  # Validate current settings
+  ptt_warnings = ptt_validate_settings(settings)
+%>
+
+<% if ptt_warnings.any? %>
+  <div style="margin-bottom: 15px;">
+    <% ptt_warnings.each do |warning| %>
+      <div class="<%= ptt_validation_css(warning[:type]) %>" style="margin-bottom: 5px;">
+        <%= warning[:message] %>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
 <fieldset class="box">
   <legend>Кастомные поля проекта</legend>
 
@@ -11,6 +26,7 @@
         </option>
       <% end %>
     </select>
+    <em class="info">Выберите числовое поле для хранения бюджета в часах</em>
   </p>
 
   <p>
@@ -23,6 +39,7 @@
         </option>
       <% end %>
     </select>
+    <em class="info">Опционально - для отслеживания истории изменений</em>
   </p>
 
   <p>
@@ -35,6 +52,7 @@
         </option>
       <% end %>
     </select>
+    <em class="info">Опционально - для отслеживания истории изменений</em>
   </p>
 </fieldset>
 
@@ -43,6 +61,7 @@
 
   <p>
     <label>Статусы "Закрыто" (для расчёта E_closed):</label>
+    <em class="info">Выберите статусы, которые означают завершение работы над задачей</em>
   </p>
 
   <% IssueStatus.sorted.each do |status| %>
@@ -50,8 +69,59 @@
       <%= check_box_tag 'settings[closed_status_ids][]', status.id,
           Array(settings['closed_status_ids']).map(&:to_s).include?(status.id.to_s),
           id: "settings_closed_status_ids_#{status.id}" %>
-      <label for="settings_closed_status_ids_<%= status.id %>" style="margin-left: 5px;"><%= status.name %></label>
+      <label for="settings_closed_status_ids_<%= status.id %>" style="margin-left: 5px;">
+        <%= status.name %>
+        <% if status.is_closed? %>
+          <span style="color: #999; font-size: 0.9em;">(закрыт по умолчанию)</span>
+        <% end %>
+      </label>
     </p>
   <% end %>
   <%= hidden_field_tag 'settings[closed_status_ids][]', '' %>
+</fieldset>
+
+<fieldset class="box">
+  <legend>Справка по метрикам</legend>
+  <table class="list" style="width: auto;">
+    <thead>
+      <tr>
+        <th>Метрика</th>
+        <th>Формула</th>
+        <th>Описание</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Прогресс</strong></td>
+        <td><code>E_closed / E_total × 100%</code></td>
+        <td>% завершённой работы</td>
+      </tr>
+      <tr>
+        <td><strong>Освоение</strong></td>
+        <td><code>F / B × 100%</code></td>
+        <td>% израсходованного бюджета</td>
+      </tr>
+      <tr>
+        <td><strong>CPI</strong></td>
+        <td><code>E_closed / F</code></td>
+        <td>Эффективность (≥1 норма, &lt;0.9 проблема)</td>
+      </tr>
+      <tr>
+        <td><strong>EAC</strong></td>
+        <td><code>E_total / CPI</code></td>
+        <td>Прогноз итоговых затрат</td>
+      </tr>
+      <tr>
+        <td><strong>Variance</strong></td>
+        <td><code>B - EAC</code></td>
+        <td>Отклонение от бюджета (+ профицит, − дефицит)</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="margin-top: 10px; color: #666; font-size: 0.9em;">
+    <strong>B</strong> = бюджет (часы),
+    <strong>E_total</strong> = сумма оценок всех задач,
+    <strong>E_closed</strong> = сумма оценок закрытых задач,
+    <strong>F</strong> = фактические трудозатраты
+  </p>
 </fieldset>

@@ -1,13 +1,165 @@
 # frozen_string_literal: true
 
 module ProjectsTimeTrackingHelper
+  PTT_HISTORY_LIMIT = 20
+
+  # ===========================================================================
+  # Settings and data loading helpers (to reduce code duplication)
+  # ===========================================================================
+
+  # Returns plugin settings hash (cached per request)
+  def ptt_settings
+    @ptt_settings ||= Setting.plugin_redmineup_projects_time_tracking || {}
+  end
+
+  # Returns sanitized array of closed status IDs
+  def ptt_closed_status_ids
+    @ptt_closed_status_ids ||= Array(ptt_settings['closed_status_ids'])
+      .filter_map { |id| Integer(id) rescue nil }
+      .reject(&:zero?)
+  end
+
+  # Returns sanitized budget custom field ID
+  def ptt_budget_custom_field_id
+    @ptt_budget_custom_field_id ||= begin
+      cf_id = ptt_settings['budget_custom_field_id']
+      cf_id.present? ? (Integer(cf_id) rescue nil) : nil
+    end
+  end
+
+  # Returns budget for a single project
+  def ptt_budget_for_project(project)
+    return nil unless ptt_budget_custom_field_id
+    cv = CustomValue.find_by(
+      customized_type: 'Project',
+      customized_id: project.id,
+      custom_field_id: ptt_budget_custom_field_id
+    )
+    cv&.value.present? ? cv.value.to_f : nil
+  end
+
+  # Returns budgets hash for multiple projects (batch query)
+  def ptt_budgets_for_projects(project_ids)
+    return {} unless ptt_budget_custom_field_id && project_ids.any?
+    CustomValue
+      .where(customized_type: 'Project', customized_id: project_ids, custom_field_id: ptt_budget_custom_field_id)
+      .pluck(:customized_id, :value)
+      .each_with_object({}) { |(pid, val), h| h[pid] = val.to_f if val.present? }
+  end
+
+  # Returns issues data for a single project
+  def ptt_issues_data_for_project(project)
+    data = ptt_issues_data_for_projects([project.id])
+    data[project.id] || ptt_empty_issues_data
+  end
+
+  # Returns issues data hash for multiple projects (batch query)
+  def ptt_issues_data_for_projects(project_ids)
+    return {} unless project_ids.any?
+
+    base_query = Issue.visible.where(project_id: project_ids).group(:project_id)
+    closed_ids = ptt_closed_status_ids
+
+    if closed_ids.any?
+      closed_condition = ActiveRecord::Base.sanitize_sql_array(['status_id IN (?)', closed_ids])
+      base_query.pluck(
+        :project_id,
+        Arel.sql('COALESCE(SUM(estimated_hours), 0)'),
+        Arel.sql("COALESCE(SUM(CASE WHEN #{closed_condition} THEN estimated_hours ELSE 0 END), 0)")
+      )
+    else
+      base_query.pluck(
+        :project_id,
+        Arel.sql('COALESCE(SUM(estimated_hours), 0)'),
+        Arel.sql('0')
+      )
+    end.to_h { |pid, est, closed_est| [pid, { estimated: est.to_f, closed_estimated: closed_est.to_f }] }
+  end
+
+  # Returns time spent for a single project
+  def ptt_time_spent_for_project(project)
+    TimeEntry.visible.where(project_id: project.id).sum(:hours).to_f
+  end
+
+  # Returns time spent hash for multiple projects (batch query)
+  def ptt_time_spent_for_projects(project_ids)
+    return {} unless project_ids.any?
+    TimeEntry.visible.where(project_id: project_ids).group(:project_id).sum(:hours)
+  end
+
+  # Returns empty issues data hash
+  def ptt_empty_issues_data
+    { estimated: 0.0, closed_estimated: 0.0 }
+  end
+
+  # ===========================================================================
+  # Settings validation
+  # ===========================================================================
+
+  # Validates plugin settings and returns array of warnings
+  def ptt_validate_settings(settings)
+    warnings = []
+
+    # Validate budget custom field
+    budget_cf_id = settings['budget_custom_field_id']
+    if budget_cf_id.present?
+      cf = CustomField.find_by(id: budget_cf_id)
+      if cf.nil?
+        warnings << { type: :error, message: 'Выбранное поле бюджета не существует' }
+      elsif !%w[float int].include?(cf.field_format)
+        warnings << { type: :warning, message: "Поле бюджета должно быть числовым (текущий тип: #{cf.field_format})" }
+      end
+    else
+      warnings << { type: :info, message: 'Поле бюджета не выбрано - метрики не будут отображаться' }
+    end
+
+    # Validate date custom fields
+    %w[start_date end_date].each do |field|
+      cf_id = settings["#{field}_custom_field_id"]
+      next unless cf_id.present?
+      cf = CustomField.find_by(id: cf_id)
+      if cf.nil?
+        warnings << { type: :error, message: "Выбранное поле #{field == 'start_date' ? 'начала' : 'окончания'} проекта не существует" }
+      elsif cf.field_format != 'date'
+        warnings << { type: :warning, message: "Поле #{field == 'start_date' ? 'начала' : 'окончания'} должно быть типа 'дата'" }
+      end
+    end
+
+    # Validate closed statuses
+    closed_ids = Array(settings['closed_status_ids']).reject(&:blank?)
+    if closed_ids.empty?
+      warnings << { type: :warning, message: 'Не выбраны статусы "Закрыто" - прогресс всегда будет 0%' }
+    else
+      existing_ids = IssueStatus.where(id: closed_ids).pluck(:id).map(&:to_s)
+      missing = closed_ids.map(&:to_s) - existing_ids
+      if missing.any?
+        warnings << { type: :error, message: "Некоторые выбранные статусы удалены (ID: #{missing.join(', ')})" }
+      end
+    end
+
+    warnings
+  end
+
+  # Returns CSS class for validation warning type
+  def ptt_validation_css(type)
+    case type
+    when :error then 'flash error'
+    when :warning then 'flash warning'
+    else 'flash notice'
+    end
+  end
+
+  # ===========================================================================
+  # Metrics calculation
+  # ===========================================================================
+
   # Calculates project metrics based on budget and issues data
   #
   # @param budget [Float, nil] project budget in hours (B)
   # @param issues_data [Hash] aggregated issues data:
   #   - :estimated [Float] sum of estimated hours for all issues (E_total)
   #   - :closed_estimated [Float] sum of estimated hours for closed issues (E_closed)
-  # @param time_spent [Float] total time spent on project (F - фактические трудозатраты)
+  # @param time_spent [Float] total time spent on project (F)
   # @return [Hash, nil] metrics hash or nil if budget is invalid
   def project_metrics(budget, issues_data, time_spent)
     return nil if budget.nil? || budget <= 0

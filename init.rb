@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 Redmine::Plugin.register :redmineup_projects_time_tracking do
   name 'Redmineup Projects Time Tracking plugin'
   author 'redmineup.com'
   description 'Time tracking columns for projects table with budget metrics and history'
-  version '0.2.0'
+  version '0.3.0'
   author_url 'mailto:support@redmineup.com'
 
   requires_redmine version_or_higher: '5.1'

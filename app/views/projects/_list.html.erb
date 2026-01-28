@@ -1,65 +1,14 @@
 <% @admin_list = User.current.admin? && controller_name == 'admin' && action_name == 'projects' %>
 <%= render_query_totals(@query) %>
 <%
-  # PATCHED - Preload data for all projects (optimized queries)
+  # PATCHED - Preload data for all projects (optimized queries using helpers)
   project_ids = entries.map(&:id)
+  budget_cf_id = ptt_budget_custom_field_id
 
-  # Plugin settings
-  ptt_settings = Setting.plugin_redmineup_projects_time_tracking || {}
-  budget_cf_id = ptt_settings['budget_custom_field_id']
-  # Sanitize: explicitly convert to Integer to prevent SQL injection
-  closed_status_ids = Array(ptt_settings['closed_status_ids']).filter_map { |id| Integer(id) rescue nil }.reject(&:zero?)
-
-  # Project budgets from custom field
-  ptt_budgets = {}
-  if budget_cf_id.present?
-    # Sanitize budget_cf_id as Integer
-    safe_cf_id = Integer(budget_cf_id) rescue nil
-    if safe_cf_id
-      CustomValue.where(customized_type: 'Project', customized_id: project_ids, custom_field_id: safe_cf_id)
-                 .pluck(:customized_id, :value)
-                 .each { |pid, val| ptt_budgets[pid] = val.to_f if val.present? }
-    end
-  end
-
-  # Issues aggregation (single query with sanitized SQL)
-  # Safety: closed_status_ids contains only validated Integers from filter_map above
-  ptt_issues_data = if project_ids.any?
-    base_query = Issue.visible.where(project_id: project_ids).group(:project_id)
-
-    if closed_status_ids.any?
-      # Use ActiveRecord sanitization for IN clause
-      closed_condition = ActiveRecord::Base.sanitize_sql_array(
-        ['status_id IN (?)', closed_status_ids]
-      )
-      base_query.pluck(
-        :project_id,
-        Arel.sql('COALESCE(SUM(estimated_hours), 0)'),
-        Arel.sql("COALESCE(SUM(CASE WHEN #{closed_condition} THEN estimated_hours ELSE 0 END), 0)"),
-        Arel.sql('COUNT(CASE WHEN estimated_hours IS NULL THEN 1 END)'),
-        Arel.sql("COUNT(CASE WHEN estimated_hours IS NULL AND #{closed_condition} THEN 1 END)")
-      )
-    else
-      # No closed statuses configured - closed metrics will be 0
-      base_query.pluck(
-        :project_id,
-        Arel.sql('COALESCE(SUM(estimated_hours), 0)'),
-        Arel.sql('0'),
-        Arel.sql('COUNT(CASE WHEN estimated_hours IS NULL THEN 1 END)'),
-        Arel.sql('0')
-      )
-    end.to_h { |pid, est, closed_est, unest, closed_unest|
-      [pid, { estimated: est.to_f, closed_estimated: closed_est.to_f, unestimated_count: unest.to_i, closed_unestimated_count: closed_unest.to_i }]
-    }
-  else
-    {}
-  end
-
-  # Time entries by project (single query)
-  ptt_time_spent = TimeEntry.visible
-    .where(project_id: project_ids)
-    .group(:project_id)
-    .sum(:hours)
+  # Batch queries via helpers
+  ptt_budgets = ptt_budgets_for_projects(project_ids)
+  ptt_issues_data = ptt_issues_data_for_projects(project_ids)
+  ptt_time_spent = ptt_time_spent_for_projects(project_ids)
   # /PATCHED
 %>
 <%= form_tag({}, data: {cm_url: projects_context_menu_path}) do -%>
@@ -83,7 +32,7 @@
         <% # PATCHED - Headers for time tracking columns %>
         <th><%= l(:field_estimated_hours) %></th>
         <th><%= l(:label_spent_time) %></th>
-        <% if budget_cf_id.present? %>
+        <% if budget_cf_id %>
           <th title="% выполнения работы (E_closed / E_total)">Прогресс</th>
           <th title="% расхода бюджета (F / B)">Освоение</th>
           <th title="CPI = E_closed / F (≥1 норма, <0.9 проблема)">CPI</th>
@@ -127,7 +76,7 @@
           <% # PATCHED - Time tracking and metrics columns %>
           <% if User.current.allowed_to?(:view_time_entries, entry) %>
             <%
-              ptt_project_issues = ptt_issues_data[entry.id] || { estimated: 0, closed_estimated: 0, unestimated_count: 0, closed_unestimated_count: 0 }
+              ptt_project_issues = ptt_issues_data[entry.id] || ptt_empty_issues_data
               ptt_spent = ptt_time_spent[entry.id] || 0
               ptt_estimated = ptt_project_issues[:estimated]
               ptt_budget = ptt_budgets[entry.id]
@@ -135,23 +84,23 @@
             %>
             <%= content_tag('td', format_metric_hours(ptt_estimated)) %>
             <%= content_tag('td', format_metric_hours(ptt_spent), style: (ptt_estimated < ptt_spent ? 'background-color: #ffcccc; color: black;' : '')) %>
-            <% if budget_cf_id.present? %>
+            <% if budget_cf_id %>
               <% if ptt_metrics %>
-                <td title="<%= metric_tooltip(:progress, ptt_metrics) %>">
+                <td title="<%= h(metric_tooltip(:progress, ptt_metrics)) %>">
                   <%= format_metric_percent(ptt_metrics[:progress]) %>
                 </td>
-                <td title="<%= metric_tooltip(:spent, ptt_metrics) %>"
+                <td title="<%= h(metric_tooltip(:spent, ptt_metrics)) %>"
                     style="<%= "background-color: #{metric_color(:spent, ptt_metrics[:spent])};" if metric_color(:spent, ptt_metrics[:spent]) %>">
                   <%= format_metric_percent(ptt_metrics[:spent]) %>
                 </td>
-                <td title="<%= metric_tooltip(:cpi, ptt_metrics) %>"
+                <td title="<%= h(metric_tooltip(:cpi, ptt_metrics)) %>"
                     style="<%= "background-color: #{metric_color(:cpi, ptt_metrics[:cpi])};" if metric_color(:cpi, ptt_metrics[:cpi]) %>">
                   <%= number_with_precision(ptt_metrics[:cpi], precision: 2) %>
                 </td>
-                <td title="<%= metric_tooltip(:eac, ptt_metrics) %>">
+                <td title="<%= h(metric_tooltip(:eac, ptt_metrics)) %>">
                   <%= format_metric_hours(ptt_metrics[:eac]) %>
                 </td>
-                <td title="<%= metric_tooltip(:variance, ptt_metrics) %>"
+                <td title="<%= h(metric_tooltip(:variance, ptt_metrics)) %>"
                     style="<%= "background-color: #{metric_color(:variance, ptt_metrics[:variance])};" if metric_color(:variance, ptt_metrics[:variance]) %>">
                   <%= format_metric_hours(ptt_metrics[:variance]) %>
                 </td>
@@ -162,7 +111,7 @@
           <% else %>
             <td></td>
             <td></td>
-            <% if budget_cf_id.present? %>
+            <% if budget_cf_id %>
               <td colspan="5"></td>
             <% end %>
           <% end %>

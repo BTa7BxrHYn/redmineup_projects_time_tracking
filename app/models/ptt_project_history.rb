@@ -3,25 +3,30 @@
 class PttProjectHistory < ActiveRecord::Base
   self.table_name = 'ptt_project_histories'
 
-  belongs_to :project
-  belongs_to :user
+  ALLOWED_FIELDS = %w[budget start_date end_date].freeze
 
-  validates :project, :user, :field_name, presence: true
-
-  scope :sorted, -> { order(created_at: :desc) }
-
-  # Field name translations
   FIELD_LABELS = {
     'start_date' => 'Начало проекта',
     'end_date' => 'Окончание проекта',
     'budget' => 'Бюджет проекта'
   }.freeze
 
+  belongs_to :project
+  belongs_to :user
+
+  validates :project, :user, :field_name, presence: true
+  validates :field_name, inclusion: { in: ALLOWED_FIELDS }
+
+  scope :sorted, -> { order(created_at: :desc) }
+
   def field_label
     FIELD_LABELS[field_name] || field_name
   end
 
   # Format value for display based on field type
+  #
+  # @param value [String, nil] the value to format
+  # @return [String] formatted value
   def format_value(value)
     return '(не задано)' if value.blank?
 
@@ -29,7 +34,7 @@ class PttProjectHistory < ActiveRecord::Base
     when 'start_date', 'end_date'
       begin
         Date.parse(value).strftime('%d.%m.%Y')
-      rescue
+      rescue ArgumentError, TypeError
         value
       end
     when 'budget'
