@@ -1,5 +1,11 @@
 # frozen_string_literal: true
 
-Rails.application.config.to_prepare do
-  ApplicationController.helper(ProjectsTimeTrackingHelper)
+module RedmineupProjectsTimeTracking
+  def self.setup
+    Rails.application.config.to_prepare do
+      ApplicationController.helper(ProjectsTimeTrackingHelper)
+    end
+  end
 end
+
+RedmineupProjectsTimeTracking.setup
