@@ -1,3 +1,4 @@
+<!-- PTT DEBUG: partial loaded -->
 <%
   budget_cf_id = ptt_budget_custom_field_id
 
@@ -107,6 +108,14 @@
 </div>
 
 <%
+    else
+%>
+<!-- PTT DEBUG: budget is nil or 0 -->
+<%
     end
+  else
+%>
+<!-- PTT DEBUG: no budget_cf_id or no permission -->
+<%
   end
 %>
