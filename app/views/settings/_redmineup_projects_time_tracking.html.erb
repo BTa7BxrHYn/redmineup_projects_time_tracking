@@ -1,39 +1,29 @@
-<table class="list">
-  <tbody>
-    <tr>
-      <th style="width: 200px;">Поле бюджета проекта</th>
-      <td>
-        <select name="settings[budget_custom_field_id]" id="settings_budget_custom_field_id">
-          <option value="">-- Не выбрано --</option>
-          <% ProjectCustomField.where(field_format: ['float', 'int']).sorted.each do |cf| %>
-            <option value="<%= cf.id %>" <%= 'selected' if settings['budget_custom_field_id'].to_s == cf.id.to_s %>>
-              <%= cf.name %>
-            </option>
-          <% end %>
-        </select>
-      </td>
-    </tr>
-    <tr>
-      <th style="vertical-align: top;">Статусы "Закрыто"</th>
-      <td>
-        <table class="list">
-          <tbody>
-            <% IssueStatus.sorted.each do |status| %>
-              <tr>
-                <td style="width: 30px;">
-                  <%= check_box_tag 'settings[closed_status_ids][]', status.id,
-                      Array(settings['closed_status_ids']).map(&:to_s).include?(status.id.to_s),
-                      id: "settings_closed_status_ids_#{status.id}" %>
-                </td>
-                <td>
-                  <label for="settings_closed_status_ids_<%= status.id %>"><%= status.name %></label>
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-        <%= hidden_field_tag 'settings[closed_status_ids][]', '' %>
-      </td>
-    </tr>
-  </tbody>
-</table>
+<fieldset class="box">
+  <legend>Настройки плагина</legend>
+
+  <p>
+    <label for="settings_budget_custom_field_id">Поле бюджета проекта:</label><br>
+    <select name="settings[budget_custom_field_id]" id="settings_budget_custom_field_id">
+      <option value="">-- Не выбрано --</option>
+      <% ProjectCustomField.where(field_format: ['float', 'int']).sorted.each do |cf| %>
+        <option value="<%= cf.id %>" <%= 'selected' if settings['budget_custom_field_id'].to_s == cf.id.to_s %>>
+          <%= cf.name %>
+        </option>
+      <% end %>
+    </select>
+  </p>
+
+  <p>
+    <label>Статусы "Закрыто":</label>
+  </p>
+
+  <% IssueStatus.sorted.each do |status| %>
+    <p style="margin: 5px 0 5px 20px;">
+      <%= check_box_tag 'settings[closed_status_ids][]', status.id,
+          Array(settings['closed_status_ids']).map(&:to_s).include?(status.id.to_s),
+          id: "settings_closed_status_ids_#{status.id}" %>
+      <label for="settings_closed_status_ids_<%= status.id %>" style="margin-left: 5px;"><%= status.name %></label>
+    </p>
+  <% end %>
+  <%= hidden_field_tag 'settings[closed_status_ids][]', '' %>
+</fieldset>
