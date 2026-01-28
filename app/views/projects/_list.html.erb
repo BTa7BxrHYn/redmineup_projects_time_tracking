@@ -9,6 +9,10 @@
   ptt_budgets = ptt_budgets_for_projects(project_ids)
   ptt_issues_data = ptt_issues_data_for_projects(project_ids)
   ptt_time_spent = ptt_time_spent_for_projects(project_ids)
+
+  # Load histories for all projects (for highlighting custom fields)
+  ptt_all_histories = ptt_histories_for_projects(project_ids)
+  ptt_tracked_cf_ids = ptt_cf_to_field_mapping.keys
   # /PATCHED
 %>
 <%= form_tag({}, data: {cm_url: projects_context_menu_path}) do -%>
@@ -70,8 +74,25 @@
               <td class="checkbox hide-when-print"></td>
             <% end %>
           <% end %>
+          <%
+            # Get project histories for highlighting
+            ptt_project_hist = ptt_all_histories[entry.id]
+          %>
           <% @query.inline_columns.each do |column| %>
-            <%= content_tag('td', column_content(column, entry), :class => column.css_classes) %>
+            <%
+              # Check if column is a tracked custom field with history
+              cf_id = column.name.to_s.start_with?('cf_') ? column.name.to_s.sub('cf_', '') : nil
+              has_history = cf_id && ptt_tracked_cf_ids.include?(cf_id) && ptt_cf_has_history?(ptt_project_hist, cf_id)
+              history_style = has_history ? ptt_cf_history_style(ptt_project_hist, cf_id) : nil
+              history_title = has_history ? ptt_cf_history_tooltip(ptt_project_hist, cf_id) : nil
+            %>
+            <% if has_history %>
+              <td class="<%= column.css_classes %>" style="<%= history_style %>" title="<%= h(history_title) %>">
+                <%= column_content(column, entry) %>
+              </td>
+            <% else %>
+              <%= content_tag('td', column_content(column, entry), :class => column.css_classes) %>
+            <% end %>
           <% end %>
           <% # PATCHED - Time tracking and metrics columns %>
           <% if User.current.allowed_to?(:view_time_entries, entry) %>

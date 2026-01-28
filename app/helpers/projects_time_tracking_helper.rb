@@ -93,6 +93,87 @@ module ProjectsTimeTrackingHelper
   end
 
   # ===========================================================================
+  # History helpers for projects list (optimized for thousands of projects)
+  # ===========================================================================
+
+  # Returns histories grouped by project_id and field_name (batch query)
+  # Limits to last 5 entries per field for performance
+  # Result: { project_id => { 'budget' => [...], 'start_date' => [...] } }
+  def ptt_histories_for_projects(project_ids)
+    return {} unless project_ids.any?
+
+    # Single query, order by created_at desc to get latest first
+    PttProjectHistory
+      .where(project_id: project_ids)
+      .select(:id, :project_id, :field_name, :old_value, :new_value, :created_at)
+      .order(created_at: :asc)
+      .each_with_object({}) do |h, result|
+        result[h.project_id] ||= {}
+        result[h.project_id][h.field_name] ||= []
+        # Limit to 5 entries per field for tooltip
+        result[h.project_id][h.field_name] << h if result[h.project_id][h.field_name].size < 5
+      end
+  end
+
+  # Returns custom field ID to history field_name mapping
+  def ptt_cf_to_field_mapping
+    @ptt_cf_to_field_mapping ||= {
+      ptt_settings['budget_custom_field_id'].to_s => 'budget',
+      ptt_settings['start_date_custom_field_id'].to_s => 'start_date',
+      ptt_settings['end_date_custom_field_id'].to_s => 'end_date'
+    }.compact.reject { |k, _| k.blank? }
+  end
+
+  # Checks if custom field has history for project
+  def ptt_cf_has_history?(project_histories, cf_id)
+    return false unless project_histories
+    field_name = ptt_cf_to_field_mapping[cf_id.to_s]
+    return false unless field_name
+    project_histories[field_name]&.any?
+  end
+
+  # Formats value for history display based on field type
+  def ptt_format_history_value(value, field_name)
+    return '—' if value.blank?
+
+    case field_name
+    when 'start_date', 'end_date'
+      begin
+        Date.parse(value).strftime('%d.%m.%Y')
+      rescue
+        value
+      end
+    when 'budget'
+      "#{value} ч"
+    else
+      value
+    end
+  end
+
+  # Returns tooltip with history for custom field (chronological: was -> became)
+  def ptt_cf_history_tooltip(project_histories, cf_id)
+    return nil unless project_histories
+    field_name = ptt_cf_to_field_mapping[cf_id.to_s]
+    return nil unless field_name
+
+    entries = project_histories[field_name]
+    return nil unless entries&.any?
+
+    lines = entries.map do |h|
+      old_val = ptt_format_history_value(h.old_value, field_name)
+      new_val = ptt_format_history_value(h.new_value, field_name)
+      "#{old_val} → #{new_val}"
+    end
+
+    "История изменений:\n#{lines.join("\n")}"
+  end
+
+  # Returns highlight style if field has history
+  def ptt_cf_history_style(project_histories, cf_id)
+    ptt_cf_has_history?(project_histories, cf_id) ? 'background-color: #ffffcc;' : nil
+  end
+
+  # ===========================================================================
   # Settings validation
   # ===========================================================================
 
