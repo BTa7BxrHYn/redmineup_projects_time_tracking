@@ -1,0 +1,107 @@
+<%
+  # Load plugin settings
+  ptt_settings = Setting.plugin_redmineup_projects_time_tracking || {}
+  budget_cf_id = ptt_settings['budget_custom_field_id']
+  closed_status_ids = Array(ptt_settings['closed_status_ids']).filter_map { |id| Integer(id) rescue nil }.reject(&:zero?)
+
+  # Only show if budget field is configured and user can view time entries
+  if budget_cf_id.present? && User.current.allowed_to?(:view_time_entries, @project)
+    # Get budget from custom field
+    safe_cf_id = Integer(budget_cf_id) rescue nil
+    ptt_budget = nil
+    if safe_cf_id
+      cv = CustomValue.find_by(customized_type: 'Project', customized_id: @project.id, custom_field_id: safe_cf_id)
+      ptt_budget = cv&.value.to_f if cv&.value.present?
+    end
+
+    if ptt_budget && ptt_budget > 0
+      # Get issues data
+      if closed_status_ids.any?
+        closed_condition = ActiveRecord::Base.sanitize_sql_array(['status_id IN (?)', closed_status_ids])
+        issues_row = Issue.visible.where(project_id: @project.id).pick(
+          Arel.sql('COALESCE(SUM(estimated_hours), 0)'),
+          Arel.sql("COALESCE(SUM(CASE WHEN #{closed_condition} THEN estimated_hours ELSE 0 END), 0)")
+        )
+      else
+        issues_row = Issue.visible.where(project_id: @project.id).pick(
+          Arel.sql('COALESCE(SUM(estimated_hours), 0)'),
+          Arel.sql('0')
+        )
+      end
+
+      ptt_e_total = issues_row[0].to_f
+      ptt_e_closed = issues_row[1].to_f
+
+      # Get time spent
+      ptt_spent = TimeEntry.visible.where(project_id: @project.id).sum(:hours).to_f
+
+      # Calculate metrics
+      ptt_issues_data = { estimated: ptt_e_total, closed_estimated: ptt_e_closed }
+      ptt_metrics = project_metrics(ptt_budget, ptt_issues_data, ptt_spent)
+%>
+
+<div class="box">
+  <h3 class="icon icon-time">Бюджет проекта</h3>
+  <table class="list" style="margin-bottom: 0;">
+    <tbody>
+      <tr>
+        <th style="width: 50%;">Бюджет (B)</th>
+        <td style="text-align: right;"><strong><%= format_metric_hours(ptt_budget) %></strong> ч</td>
+      </tr>
+      <tr>
+        <th>Оценки (E_total)</th>
+        <td style="text-align: right;"><%= format_metric_hours(ptt_e_total) %> ч</td>
+      </tr>
+      <tr>
+        <th>Закрыто (E_closed)</th>
+        <td style="text-align: right;"><%= format_metric_hours(ptt_e_closed) %> ч</td>
+      </tr>
+      <tr>
+        <th>Факт (F)</th>
+        <td style="text-align: right;"><%= format_metric_hours(ptt_spent) %> ч</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <% if ptt_metrics %>
+    <hr style="margin: 10px 0;">
+    <table class="list" style="margin-bottom: 0;">
+      <tbody>
+        <tr title="<%= metric_tooltip(:progress, ptt_metrics) %>">
+          <th style="width: 50%;">Прогресс</th>
+          <td style="text-align: right;"><%= format_metric_percent(ptt_metrics[:progress]) %></td>
+        </tr>
+        <tr title="<%= metric_tooltip(:spent, ptt_metrics) %>"
+            style="<%= "background-color: #{metric_color(:spent, ptt_metrics[:spent])};" if metric_color(:spent, ptt_metrics[:spent]) %>">
+          <th>Освоение</th>
+          <td style="text-align: right;"><%= format_metric_percent(ptt_metrics[:spent]) %></td>
+        </tr>
+        <tr title="<%= metric_tooltip(:cpi, ptt_metrics) %>"
+            style="<%= "background-color: #{metric_color(:cpi, ptt_metrics[:cpi])};" if metric_color(:cpi, ptt_metrics[:cpi]) %>">
+          <th>CPI</th>
+          <td style="text-align: right;">
+            <%= cpi_status(ptt_metrics[:cpi])[:icon] %>
+            <strong><%= number_with_precision(ptt_metrics[:cpi], precision: 2) %></strong>
+          </td>
+        </tr>
+        <tr title="<%= metric_tooltip(:eac, ptt_metrics) %>">
+          <th>EAC (прогноз)</th>
+          <td style="text-align: right;"><%= format_metric_hours(ptt_metrics[:eac]) %> ч</td>
+        </tr>
+        <tr title="<%= metric_tooltip(:variance, ptt_metrics) %>"
+            style="<%= "background-color: #{metric_color(:variance, ptt_metrics[:variance])};" if metric_color(:variance, ptt_metrics[:variance]) %>">
+          <th>Variance</th>
+          <td style="text-align: right;">
+            <%= ptt_metrics[:variance] >= 0 ? '+' : '' %><%= format_metric_hours(ptt_metrics[:variance]) %> ч
+            (<%= format_metric_percent(ptt_metrics[:variance_percent]) %>)
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  <% end %>
+</div>
+
+<%
+    end
+  end
+%>
