@@ -1,0 +1,30 @@
+<table class="settings">
+  <tr>
+    <th><label for="settings_budget_custom_field_id">Поле бюджета проекта</label></th>
+    <td>
+      <select name="settings[budget_custom_field_id]" id="settings_budget_custom_field_id">
+        <option value="">-- Не выбрано --</option>
+        <% ProjectCustomField.where(field_format: ['float', 'int']).sorted.each do |cf| %>
+          <option value="<%= cf.id %>" <%= 'selected' if settings['budget_custom_field_id'].to_s == cf.id.to_s %>>
+            <%= cf.name %>
+          </option>
+        <% end %>
+      </select>
+    </td>
+  </tr>
+  <tr>
+    <th><label>Статусы "Закрыто"</label></th>
+    <td>
+      <% IssueStatus.sorted.each do |status| %>
+        <label style="display: block;">
+          <input type="checkbox"
+                 name="settings[closed_status_ids][]"
+                 value="<%= status.id %>"
+                 <%= 'checked' if Array(settings['closed_status_ids']).include?(status.id.to_s) %>>
+          <%= status.name %>
+        </label>
+      <% end %>
+      <input type="hidden" name="settings[closed_status_ids][]" value="">
+    </td>
+  </tr>
+</table>

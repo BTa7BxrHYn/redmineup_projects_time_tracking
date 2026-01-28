@@ -1,0 +1,22 @@
+/* Projects Time Tracking Plugin Styles */
+
+/* Metric cells styling */
+table.projects td[title] {
+  cursor: help;
+}
+
+/* Tooltip enhancement - uses native browser tooltips via title attribute */
+/* For better tooltip rendering, the title attribute contains preformatted text */
+
+/* Color indicators */
+.ptt-overbudget {
+  background-color: #ffcccc;
+}
+
+.ptt-warning {
+  background-color: #ffffcc;
+}
+
+.ptt-good {
+  background-color: #ccffcc;
+}

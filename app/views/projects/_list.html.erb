@@ -1,0 +1,193 @@
+<% @admin_list = User.current.admin? && controller_name == 'admin' && action_name == 'projects' %>
+<%= render_query_totals(@query) %>
+<%
+  # PATCHED - Preload data for all projects (optimized queries)
+  project_ids = entries.map(&:id)
+
+  # Plugin settings
+  ptt_settings = Setting.plugin_redmineup_projects_time_tracking || {}
+  budget_cf_id = ptt_settings['budget_custom_field_id']
+  # Sanitize: explicitly convert to Integer to prevent SQL injection
+  closed_status_ids = Array(ptt_settings['closed_status_ids']).filter_map { |id| Integer(id) rescue nil }.reject(&:zero?)
+
+  # Project budgets from custom field
+  ptt_budgets = {}
+  if budget_cf_id.present?
+    # Sanitize budget_cf_id as Integer
+    safe_cf_id = Integer(budget_cf_id) rescue nil
+    if safe_cf_id
+      CustomValue.where(customized_type: 'Project', customized_id: project_ids, custom_field_id: safe_cf_id)
+                 .pluck(:customized_id, :value)
+                 .each { |pid, val| ptt_budgets[pid] = val.to_f if val.present? }
+    end
+  end
+
+  # Issues aggregation (single query with sanitized SQL)
+  # Safety: closed_status_ids contains only validated Integers from filter_map above
+  ptt_issues_data = if project_ids.any?
+    base_query = Issue.visible.where(project_id: project_ids).group(:project_id)
+
+    if closed_status_ids.any?
+      # Use ActiveRecord sanitization for IN clause
+      closed_condition = ActiveRecord::Base.sanitize_sql_array(
+        ['status_id IN (?)', closed_status_ids]
+      )
+      base_query.pluck(
+        :project_id,
+        Arel.sql('COALESCE(SUM(estimated_hours), 0)'),
+        Arel.sql("COALESCE(SUM(CASE WHEN #{closed_condition} THEN estimated_hours ELSE 0 END), 0)"),
+        Arel.sql('COUNT(CASE WHEN estimated_hours IS NULL THEN 1 END)'),
+        Arel.sql("COUNT(CASE WHEN estimated_hours IS NULL AND #{closed_condition} THEN 1 END)")
+      )
+    else
+      # No closed statuses configured - closed metrics will be 0
+      base_query.pluck(
+        :project_id,
+        Arel.sql('COALESCE(SUM(estimated_hours), 0)'),
+        Arel.sql('0'),
+        Arel.sql('COUNT(CASE WHEN estimated_hours IS NULL THEN 1 END)'),
+        Arel.sql('0')
+      )
+    end.to_h { |pid, est, closed_est, unest, closed_unest|
+      [pid, { estimated: est.to_f, closed_estimated: closed_est.to_f, unestimated_count: unest.to_i, closed_unestimated_count: closed_unest.to_i }]
+    }
+  else
+    {}
+  end
+
+  # Time entries by project (single query)
+  ptt_time_spent = TimeEntry.visible
+    .where(project_id: project_ids)
+    .group(:project_id)
+    .sum(:hours)
+  # /PATCHED
+%>
+<%= form_tag({}, data: {cm_url: projects_context_menu_path}) do -%>
+  <%= hidden_field_tag 'back_url', url_for(params: request.query_parameters), id: nil %>
+  <div class="autoscroll">
+    <table class="list projects odd-even <%= @query.css_classes %>">
+      <thead>
+      <tr>
+        <% if @admin_list %>
+          <th class="checkbox hide-when-print">
+            <%= check_box_tag 'check_all', '', false, :class => 'toggle-selection',
+                              :title => "#{l(:button_check_all)} / #{l(:button_uncheck_all)}" %>
+          </th>
+        <% end %>
+        <% @query.inline_columns.each do |column| %>
+          <%= column_header(@query, column) %>
+        <% end %>
+        <% if @admin_list %>
+          <th></th>
+        <% end %>
+        <% # PATCHED - Headers for time tracking columns %>
+        <th><%= l(:field_estimated_hours) %></th>
+        <th><%= l(:label_spent_time) %></th>
+        <% if budget_cf_id.present? %>
+          <th title="(T_spent / B) × 100%">Освоение</th>
+          <th title="(E_effective / B) × 100%">Здоровье</th>
+          <th title="Прогресс / Освоение">Эффект.</th>
+        <% end %>
+        <% # /PATCHED %>
+      </tr>
+      </thead>
+      <tbody>
+      <% grouped_project_list(entries, @query) do |entry, level, group_name, group_count, group_totals| -%>
+        <% if group_name %>
+          <% reset_cycle %>
+          <tr class="group open">
+            <td colspan="<%= @query.inline_columns.size %>">
+              <span class="expander icon icon-expanded" onclick="toggleRowGroup(this);">&nbsp;</span>
+              <span class="name"><%= group_name %></span>
+              <% if group_count %>
+                <span class="count"><%= group_count %></span>
+              <% end %>
+              <span class="totals"><%= group_totals %></span>
+              <%= link_to_function("#{l(:button_collapse_all)}/#{l(:button_expand_all)}",
+                                   "toggleAllRowGroups(this)", :class => 'toggle-all') %>
+            </td>
+            <% if @admin_list %>
+              <td></td>
+            <% end %>
+          </tr>
+        <% end %>
+        <tr id="project-<%= entry.id %>" class="<%= cycle('odd', 'even') %> hascontextmenu <%= entry.css_classes %> <%= level > 0 ? "idnt idnt-#{level}" : nil %>">
+          <% if @admin_list %>
+            <% if !entry.scheduled_for_deletion? %>
+              <td class="checkbox hide-when-print"><%= check_box_tag("ids[]", entry.id, false, :id => nil) %></td>
+            <% else %>
+              <td class="checkbox hide-when-print"></td>
+            <% end %>
+          <% end %>
+          <% @query.inline_columns.each do |column| %>
+            <%= content_tag('td', column_content(column, entry), :class => column.css_classes) %>
+          <% end %>
+          <% # PATCHED - Time tracking and metrics columns %>
+          <% if User.current.allowed_to?(:view_time_entries, entry) %>
+            <%
+              ptt_project_issues = ptt_issues_data[entry.id] || { estimated: 0, closed_estimated: 0, unestimated_count: 0, closed_unestimated_count: 0 }
+              ptt_spent = ptt_time_spent[entry.id] || 0
+              ptt_estimated = ptt_project_issues[:estimated]
+              ptt_budget = ptt_budgets[entry.id]
+              ptt_metrics = project_metrics(entry, ptt_budget, ptt_project_issues, ptt_spent)
+            %>
+            <%= content_tag('td', format_metric_hours(ptt_estimated)) %>
+            <%= content_tag('td', format_metric_hours(ptt_spent), style: (ptt_estimated < ptt_spent ? 'background-color: #ffcccc; color: black;' : '')) %>
+            <% if budget_cf_id.present? %>
+              <% if ptt_metrics %>
+                <td title="<%= metric_tooltip(:budget_used, ptt_metrics) %>"
+                    style="<%= "background-color: #{metric_color(:budget_used, ptt_metrics[:budget_used])};" if metric_color(:budget_used, ptt_metrics[:budget_used]) %>">
+                  <%= number_with_precision(ptt_metrics[:budget_used], precision: 1) %>%
+                </td>
+                <td title="<%= metric_tooltip(:health, ptt_metrics) %>"
+                    style="<%= "background-color: #{metric_color(:health, ptt_metrics[:health])};" if metric_color(:health, ptt_metrics[:health]) %>">
+                  <%= number_with_precision(ptt_metrics[:health], precision: 1) %>%
+                </td>
+                <td title="<%= metric_tooltip(:efficiency, ptt_metrics) %>"
+                    style="<%= "background-color: #{metric_color(:efficiency, ptt_metrics[:efficiency])};" if metric_color(:efficiency, ptt_metrics[:efficiency]) %>">
+                  <%= number_with_precision(ptt_metrics[:efficiency], precision: 2) %>
+                </td>
+              <% else %>
+                <td colspan="3" style="text-align: center; color: #999;">—</td>
+              <% end %>
+            <% end %>
+          <% else %>
+            <td></td>
+            <td></td>
+            <% if budget_cf_id.present? %>
+              <td colspan="3"></td>
+            <% end %>
+          <% end %>
+          <% # /PATCHED %>
+          <% if @admin_list %>
+            <% if !entry.scheduled_for_deletion? %>
+              <td class="buttons"><%= link_to_context_menu %></td>
+            <% else %>
+              <td class="buttons"></td>
+            <% end %>
+          <% end %>
+        </tr>
+      <% end -%>
+      </tbody>
+    </table>
+  </div>
+<% end -%>
+<span class="pagination"><%= pagination_links_full @entry_pages, @entry_count %></span>
+
+<div id="csv-export-options" style="display:none;">
+  <h3 class="title"><%= l(:label_export_options, :export_format => 'CSV') %></h3>
+  <%= form_tag(projects_path(:format => 'csv'), :method => :get, :id => 'csv-export-form') do %>
+    <%= query_as_hidden_field_tags(@query) %>
+    <p>
+      <label><%= radio_button_tag 'c[]', '', true %> <%= l(:description_selected_columns) %></label><br />
+      <label><%= radio_button_tag 'c[]', 'all_inline' %> <%= l(:description_all_columns) %></label>
+    </p>
+    <%= export_csv_encoding_select_tag %>
+    <%= export_csv_separator_select_tag %>
+    <p class="buttons">
+      <%= submit_tag l(:button_export), :name => nil, :onclick => "hideModal(this);", :data => { :disable_with => false } %>
+      <%= link_to_function l(:button_cancel), "hideModal(this);" %>
+    </p>
+  <% end %>
+</div>
+<%= context_menu if @admin_list %>
