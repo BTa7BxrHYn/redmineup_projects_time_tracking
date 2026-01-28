@@ -6,13 +6,20 @@ module RedmineupProjectsTimeTracking
 
     included do
       has_many :ptt_histories, class_name: 'PttProjectHistory', dependent: :destroy
+    end
+  end
 
-      after_save :ptt_track_custom_field_changes
+  module CustomValuePatch
+    extend ActiveSupport::Concern
+
+    included do
+      after_save :ptt_track_project_custom_field_change
     end
 
     private
 
-    def ptt_track_custom_field_changes
+    def ptt_track_project_custom_field_change
+      return unless customized_type == 'Project'
       return unless User.current&.id
 
       settings = Setting.plugin_redmineup_projects_time_tracking || {}
@@ -20,31 +27,26 @@ module RedmineupProjectsTimeTracking
         'budget' => settings['budget_custom_field_id'],
         'start_date' => settings['start_date_custom_field_id'],
         'end_date' => settings['end_date_custom_field_id']
-      }.compact_blank
+      }
 
-      return if tracked_fields.empty?
+      # Find which field this custom value belongs to
+      field_key = tracked_fields.key(custom_field_id.to_s)
+      return unless field_key
 
-      changes_to_record = {}
-
-      tracked_fields.each do |field_key, cf_id|
-        next if cf_id.blank?
-
-        cf_id = Integer(cf_id) rescue next
-        cv = custom_values.find { |v| v.custom_field_id == cf_id }
-        next unless cv
-
-        if cv.previously_new_record?
-          # New custom value created
-          changes_to_record[field_key] = [nil, cv.value] if cv.value.present?
-        elsif cv.saved_change_to_value?
-          old_val, new_val = cv.saved_change_to_value
-          changes_to_record[field_key] = [old_val, new_val]
-        end
+      # Check if value changed
+      if previously_new_record?
+        return unless value.present?
+        old_val, new_val = nil, value
+      elsif saved_change_to_value?
+        old_val, new_val = saved_change_to_value
+      else
+        return
       end
 
-      return if changes_to_record.empty?
+      project = Project.find_by(id: customized_id)
+      return unless project
 
-      PttProjectHistory.record_changes(self, User.current, changes_to_record)
+      PttProjectHistory.record_changes(project, User.current, { field_key => [old_val, new_val] })
     end
   end
 end

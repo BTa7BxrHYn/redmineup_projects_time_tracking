@@ -23,4 +23,8 @@ Rails.application.config.to_prepare do
   unless Project.included_modules.include?(RedmineupProjectsTimeTracking::ProjectPatch)
     Project.include(RedmineupProjectsTimeTracking::ProjectPatch)
   end
+
+  unless CustomValue.included_modules.include?(RedmineupProjectsTimeTracking::CustomValuePatch)
+    CustomValue.include(RedmineupProjectsTimeTracking::CustomValuePatch)
+  end
 end
