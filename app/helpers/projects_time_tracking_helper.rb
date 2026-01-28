@@ -15,7 +15,11 @@ module ProjectsTimeTrackingHelper
   # Returns sanitized array of closed status IDs
   def ptt_closed_status_ids
     @ptt_closed_status_ids ||= Array(ptt_settings['closed_status_ids'])
-      .filter_map { |id| Integer(id) rescue nil }
+      .filter_map do |id|
+        Integer(id)
+      rescue ArgumentError, TypeError
+        nil
+      end
       .reject(&:zero?)
   end
 
@@ -23,7 +27,11 @@ module ProjectsTimeTrackingHelper
   def ptt_budget_custom_field_id
     @ptt_budget_custom_field_id ||= begin
       cf_id = ptt_settings['budget_custom_field_id']
-      cf_id.present? ? (Integer(cf_id) rescue nil) : nil
+      return nil if cf_id.blank?
+
+      Integer(cf_id)
+    rescue ArgumentError, TypeError
+      nil
     end
   end
 
@@ -102,11 +110,14 @@ module ProjectsTimeTrackingHelper
   def ptt_histories_for_projects(project_ids)
     return {} unless project_ids.any?
 
-    # Single query, order by created_at desc to get latest first
+    # Limit total records to avoid memory issues (5 entries * 3 fields * projects)
+    max_records = project_ids.size * 15
+
     PttProjectHistory
       .where(project_id: project_ids)
       .select(:id, :project_id, :field_name, :old_value, :new_value, :created_at)
-      .order(created_at: :asc)
+      .order(created_at: :desc)
+      .limit(max_records)
       .each_with_object({}) do |h, result|
         result[h.project_id] ||= {}
         result[h.project_id][h.field_name] ||= []
@@ -140,7 +151,7 @@ module ProjectsTimeTrackingHelper
     when 'start_date', 'end_date'
       begin
         Date.parse(value).strftime('%d.%m.%Y')
-      rescue
+      rescue ArgumentError, TypeError
         value
       end
     when 'budget'
@@ -249,17 +260,33 @@ module ProjectsTimeTrackingHelper
     e_closed = issues_data[:closed_estimated] || 0
     f = time_spent || 0
 
+    raw = { budget: budget, e_total: e_total, e_closed: e_closed, f: f }
+
     # Прогресс = E_closed / E_total × 100%
     progress = e_total > 0 ? (e_closed / e_total) * 100 : 0
 
     # Освоение = F / B × 100%
     spent = (f / budget) * 100
 
-    # CPI = E_closed / F
-    cpi = f > 0 ? e_closed / f : 0
+    # CPI/EAC/Variance не вычисляются без фактических трудозатрат
+    if f == 0 || e_closed == 0
+      return {
+        progress: progress,
+        spent: spent,
+        cpi: nil,
+        eac: nil,
+        variance: nil,
+        variance_percent: nil,
+        raw: raw,
+        incomplete: true
+      }
+    end
 
-    # EAC = E_total / CPI (или F / Progress в долях)
-    eac = cpi > 0 ? e_total / cpi : 0
+    # CPI = E_closed / F
+    cpi = e_closed / f
+
+    # EAC = E_total / CPI
+    eac = e_total / cpi
 
     # Variance = B - EAC
     variance = budget - eac
@@ -274,12 +301,7 @@ module ProjectsTimeTrackingHelper
       eac: eac,
       variance: variance,
       variance_percent: variance_percent,
-      raw: {
-        budget: budget,
-        e_total: e_total,
-        e_closed: e_closed,
-        f: f
-      }
+      raw: raw
     }
   end
 

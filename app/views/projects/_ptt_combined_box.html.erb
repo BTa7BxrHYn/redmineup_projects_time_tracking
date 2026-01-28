@@ -11,12 +11,23 @@
       ptt_spent = ptt_time_spent_for_project(@project)
       ptt_metrics = project_metrics(ptt_budget, ptt_project_issues, ptt_spent)
 
-      # History data
+      # History data - optimized to avoid extra COUNT query
       ptt_history_limit = ProjectsTimeTrackingHelper::PTT_HISTORY_LIMIT
-      ptt_show_all = params[:ptt_show_all_history] == '1'
-      base_query = @project.ptt_histories.sorted
-      ptt_total_count = base_query.count
-      histories_to_show = ptt_show_all ? base_query.includes(:user) : base_query.includes(:user).limit(ptt_history_limit)
+      ptt_show_all = params[:ptt_show_all_history].to_s == '1'
+      base_query = @project.ptt_histories.sorted.includes(:user)
+
+      if ptt_show_all
+        histories_to_show = base_query.to_a
+        ptt_total_count = histories_to_show.size
+        ptt_has_more = false
+      else
+        # Load one extra to check if there are more
+        histories_to_show = base_query.limit(ptt_history_limit + 1).to_a
+        ptt_has_more = histories_to_show.size > ptt_history_limit
+        histories_to_show = histories_to_show.take(ptt_history_limit) if ptt_has_more
+        ptt_total_count = ptt_has_more ? base_query.count : histories_to_show.size
+      end
+
       grouped_histories = histories_to_show.group_by { |h| [h.user_id, h.created_at.to_i / 60] }
 %>
 
@@ -45,17 +56,29 @@
             style="<%= "background-color: #{metric_color(:spent, ptt_metrics[:spent])};" if metric_color(:spent, ptt_metrics[:spent]) %>">
           <span class="label">Освоение</span>: <%= format_metric_percent(ptt_metrics[:spent]) %>
         </li>
-        <li class="ptt_cpi" title="<%= h(metric_tooltip(:cpi, ptt_metrics)) %>"
-            style="<%= "background-color: #{metric_color(:cpi, ptt_metrics[:cpi])};" if metric_color(:cpi, ptt_metrics[:cpi]) %>">
-          <span class="label">CPI</span>: <strong><%= number_with_precision(ptt_metrics[:cpi], precision: 2) %></strong>
-        </li>
-        <li class="ptt_eac" title="<%= h(metric_tooltip(:eac, ptt_metrics)) %>">
-          <span class="label">EAC (прогноз)</span>: <%= format_metric_hours(ptt_metrics[:eac]) %> ч
-        </li>
-        <li class="ptt_variance" title="<%= h(metric_tooltip(:variance, ptt_metrics)) %>"
-            style="<%= "background-color: #{metric_color(:variance, ptt_metrics[:variance])};" if metric_color(:variance, ptt_metrics[:variance]) %>">
-          <span class="label">Variance</span>: <%= ptt_metrics[:variance] >= 0 ? '+' : '' %><%= format_metric_hours(ptt_metrics[:variance]) %> ч (<%= format_metric_percent(ptt_metrics[:variance_percent]) %>)
-        </li>
+        <% if ptt_metrics[:incomplete] %>
+          <li class="ptt_cpi" style="color: #999;">
+            <span class="label">CPI</span>: <em>нет данных</em>
+          </li>
+          <li class="ptt_eac" style="color: #999;">
+            <span class="label">EAC</span>: <em>нет данных</em>
+          </li>
+          <li class="ptt_variance" style="color: #999;">
+            <span class="label">Variance</span>: <em>нет данных</em>
+          </li>
+        <% else %>
+          <li class="ptt_cpi" title="<%= h(metric_tooltip(:cpi, ptt_metrics)) %>"
+              style="<%= "background-color: #{metric_color(:cpi, ptt_metrics[:cpi])};" if metric_color(:cpi, ptt_metrics[:cpi]) %>">
+            <span class="label">CPI</span>: <strong><%= number_with_precision(ptt_metrics[:cpi], precision: 2) %></strong>
+          </li>
+          <li class="ptt_eac" title="<%= h(metric_tooltip(:eac, ptt_metrics)) %>">
+            <span class="label">EAC (прогноз)</span>: <%= format_metric_hours(ptt_metrics[:eac]) %> ч
+          </li>
+          <li class="ptt_variance" title="<%= h(metric_tooltip(:variance, ptt_metrics)) %>"
+              style="<%= "background-color: #{metric_color(:variance, ptt_metrics[:variance])};" if metric_color(:variance, ptt_metrics[:variance]) %>">
+            <span class="label">Variance</span>: <%= ptt_metrics[:variance] >= 0 ? '+' : '' %><%= format_metric_hours(ptt_metrics[:variance]) %> ч (<%= format_metric_percent(ptt_metrics[:variance_percent]) %>)
+          </li>
+        <% end %>
       <% end %>
     </ul>
   </div>
@@ -76,7 +99,7 @@
           <% entry = entries.first %>
           <div style="margin-bottom: 10px; padding: 8px; background: #f9f9f9; border-left: 3px solid #ccc;">
             <div style="margin-bottom: 5px; color: #666; font-size: 0.9em;">
-              <strong><%= link_to_user(entry.user) %></strong>
+              <strong><%= entry.user ? link_to_user(entry.user) : '[удалён]' %></strong>
               — <%= format_time(entry.created_at) %>
             </div>
             <ul style="margin: 0; padding-left: 18px; font-size: 0.9em;">

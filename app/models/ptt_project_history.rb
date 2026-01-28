@@ -12,10 +12,21 @@ class PttProjectHistory < ActiveRecord::Base
   }.freeze
 
   belongs_to :project
-  belongs_to :user
+  belongs_to :user, optional: true
 
-  validates :project, :user, :field_name, presence: true
+  validates :project, :field_name, presence: true
   validates :field_name, inclusion: { in: ALLOWED_FIELDS }
+  validate :at_least_one_value_present
+
+  private
+
+  def at_least_one_value_present
+    return if old_value.present? || new_value.present?
+
+    errors.add(:base, 'At least one of old_value or new_value must be present')
+  end
+
+  public
 
   scope :sorted, -> { order(created_at: :desc) }
 

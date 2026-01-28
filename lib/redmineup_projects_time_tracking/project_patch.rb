@@ -20,7 +20,7 @@ module RedmineupProjectsTimeTracking
 
     def ptt_track_project_custom_field_change
       return unless customized_type == 'Project'
-      return unless User.current&.id
+      return unless User.current&.logged?
 
       settings = Setting.plugin_redmineup_projects_time_tracking || {}
       tracked_fields = {
