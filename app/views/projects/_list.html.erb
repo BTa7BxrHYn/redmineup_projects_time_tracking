@@ -84,9 +84,11 @@
         <th><%= l(:field_estimated_hours) %></th>
         <th><%= l(:label_spent_time) %></th>
         <% if budget_cf_id.present? %>
-          <th title="(T_spent / B) × 100%">Освоение</th>
-          <th title="(E_effective / B) × 100%">Здоровье</th>
-          <th title="Прогресс / Освоение">Эффект.</th>
+          <th title="% выполненной работы">Прогресс</th>
+          <th title="% потраченного бюджета">Освоение</th>
+          <th title="Progress / Spent">Эффект.</th>
+          <th title="Прогноз затрат при завершении">EAC</th>
+          <th title="Отклонение от бюджета (+ экономия, - перерасход)">Variance</th>
         <% end %>
         <% # /PATCHED %>
       </tr>
@@ -129,33 +131,39 @@
               ptt_spent = ptt_time_spent[entry.id] || 0
               ptt_estimated = ptt_project_issues[:estimated]
               ptt_budget = ptt_budgets[entry.id]
-              ptt_metrics = project_metrics(entry, ptt_budget, ptt_project_issues, ptt_spent)
+              ptt_metrics = project_metrics(ptt_budget, ptt_project_issues, ptt_spent)
             %>
             <%= content_tag('td', format_metric_hours(ptt_estimated)) %>
             <%= content_tag('td', format_metric_hours(ptt_spent), style: (ptt_estimated < ptt_spent ? 'background-color: #ffcccc; color: black;' : '')) %>
             <% if budget_cf_id.present? %>
               <% if ptt_metrics %>
-                <td title="<%= metric_tooltip(:budget_used, ptt_metrics) %>"
-                    style="<%= "background-color: #{metric_color(:budget_used, ptt_metrics[:budget_used])};" if metric_color(:budget_used, ptt_metrics[:budget_used]) %>">
-                  <%= number_with_precision(ptt_metrics[:budget_used], precision: 1) %>%
+                <td title="<%= metric_tooltip(:progress, ptt_metrics) %>">
+                  <%= format_metric_percent(ptt_metrics[:progress]) %>
                 </td>
-                <td title="<%= metric_tooltip(:health, ptt_metrics) %>"
-                    style="<%= "background-color: #{metric_color(:health, ptt_metrics[:health])};" if metric_color(:health, ptt_metrics[:health]) %>">
-                  <%= number_with_precision(ptt_metrics[:health], precision: 1) %>%
+                <td title="<%= metric_tooltip(:spent, ptt_metrics) %>"
+                    style="<%= "background-color: #{metric_color(:spent, ptt_metrics[:spent])};" if metric_color(:spent, ptt_metrics[:spent]) %>">
+                  <%= format_metric_percent(ptt_metrics[:spent]) %>
                 </td>
                 <td title="<%= metric_tooltip(:efficiency, ptt_metrics) %>"
                     style="<%= "background-color: #{metric_color(:efficiency, ptt_metrics[:efficiency])};" if metric_color(:efficiency, ptt_metrics[:efficiency]) %>">
                   <%= number_with_precision(ptt_metrics[:efficiency], precision: 2) %>
                 </td>
+                <td title="<%= metric_tooltip(:eac, ptt_metrics) %>">
+                  <%= format_metric_hours(ptt_metrics[:eac]) %>
+                </td>
+                <td title="<%= metric_tooltip(:variance, ptt_metrics) %>"
+                    style="<%= "background-color: #{metric_color(:variance, ptt_metrics[:variance])};" if metric_color(:variance, ptt_metrics[:variance]) %>">
+                  <%= format_metric_hours(ptt_metrics[:variance]) %>
+                </td>
               <% else %>
-                <td colspan="3" style="text-align: center; color: #999;">—</td>
+                <td colspan="5" style="text-align: center; color: #999;">—</td>
               <% end %>
             <% end %>
           <% else %>
             <td></td>
             <td></td>
             <% if budget_cf_id.present? %>
-              <td colspan="3"></td>
+              <td colspan="5"></td>
             <% end %>
           <% end %>
           <% # /PATCHED %>
