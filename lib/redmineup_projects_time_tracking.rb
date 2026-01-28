@@ -19,12 +19,20 @@ require_relative 'redmineup_projects_time_tracking/hooks'
 ActionView::Base.include(ProjectsTimeTrackingHelper)
 
 # Apply patches
+Rails.logger.info "[PTT] Registering to_prepare callback"
+
 Rails.application.config.to_prepare do
+  Rails.logger.info "[PTT] to_prepare block executing"
+
   unless Project.included_modules.include?(RedmineupProjectsTimeTracking::ProjectPatch)
+    Rails.logger.info "[PTT] Including ProjectPatch into Project"
     Project.include(RedmineupProjectsTimeTracking::ProjectPatch)
   end
 
   unless CustomValue.included_modules.include?(RedmineupProjectsTimeTracking::CustomValuePatch)
+    Rails.logger.info "[PTT] Including CustomValuePatch into CustomValue"
     CustomValue.include(RedmineupProjectsTimeTracking::CustomValuePatch)
   end
+
+  Rails.logger.info "[PTT] CustomValue callbacks: #{CustomValue._save_callbacks.map(&:filter).inspect}"
 end
