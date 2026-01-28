@@ -1,11 +1,10 @@
 # frozen_string_literal: true
 
 module RedmineupProjectsTimeTracking
-  def self.setup
-    Rails.application.config.to_prepare do
-      ApplicationController.helper(ProjectsTimeTrackingHelper)
-    end
-  end
 end
 
-RedmineupProjectsTimeTracking.setup
+# Load helper
+require_relative '../app/helpers/projects_time_tracking_helper'
+
+# Include helper in ActionView
+ActionView::Base.include(ProjectsTimeTrackingHelper)
