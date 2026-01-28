@@ -1,142 +1,106 @@
 # frozen_string_literal: true
 
 module ProjectsTimeTrackingHelper
-  # Calculates project metrics based on budget, issues data and time spent
+  # Calculates project metrics based on budget and issues data
   #
   # @param budget [Float, nil] project budget in hours (B)
   # @param issues_data [Hash] aggregated issues data:
   #   - :estimated [Float] sum of estimated hours for all issues (E_total)
   #   - :closed_estimated [Float] sum of estimated hours for closed issues (E_closed)
-  #   - :unestimated_count [Integer] count of issues without estimates (N_unest)
-  #   - :closed_unestimated_count [Integer] count of closed issues without estimates (N_unest_closed)
-  # @param time_spent [Float] total time spent on project (T_spent)
+  # @param time_spent [Float] total time spent on project (F - фактические трудозатраты)
   # @return [Hash, nil] metrics hash or nil if budget is invalid
   def project_metrics(budget, issues_data, time_spent)
     return nil if budget.nil? || budget <= 0
 
     e_total = issues_data[:estimated] || 0
     e_closed = issues_data[:closed_estimated] || 0
-    n_unest = issues_data[:unestimated_count] || 0
-    n_unest_closed = issues_data[:closed_unestimated_count] || 0
-    t_spent = time_spent || 0
+    f = time_spent || 0
 
-    # Step 1: Implied estimate for unestimated issues
-    # E_implied = (B - E_total) / N_unest, if B > E_total and N_unest > 0
-    e_implied = if budget > e_total && n_unest > 0
-                  (budget - e_total) / n_unest
-                else
-                  0
-                end
+    # Прогресс = E_closed / E_total × 100%
+    progress = e_total > 0 ? (e_closed / e_total) * 100 : 0
 
-    # Step 2: Effective sums
-    e_effective = e_total + (n_unest * e_implied)
-    e_closed_effective = e_closed + (n_unest_closed * e_implied)
+    # Освоение = F / B × 100%
+    spent = (f / budget) * 100
 
-    # Step 3: Main metrics
-    # Progress = (E_closed_effective / E_effective) × 100%
-    progress = e_effective > 0 ? (e_closed_effective / e_effective) * 100 : 0
+    # CPI = E_closed / F
+    cpi = f > 0 ? e_closed / f : 0
 
-    # Spent = (T_spent / B) × 100%
-    spent = (t_spent / budget) * 100
-
-    # Efficiency = Progress / Spent
-    efficiency = spent > 0 ? progress / spent : 0
-
-    # Step 4: Forecast
-    # EAC = T_spent × (E_effective / E_closed_effective)
-    eac = e_closed_effective > 0 ? t_spent * (e_effective / e_closed_effective) : 0
+    # EAC = E_total / CPI (или F / Progress в долях)
+    eac = cpi > 0 ? e_total / cpi : 0
 
     # Variance = B - EAC
     variance = budget - eac
 
+    # Отклонение% = (B - EAC) / B × 100%
+    variance_percent = (variance / budget) * 100
+
     {
       progress: progress,
       spent: spent,
-      efficiency: efficiency,
+      cpi: cpi,
       eac: eac,
       variance: variance,
+      variance_percent: variance_percent,
       raw: {
         budget: budget,
         e_total: e_total,
         e_closed: e_closed,
-        n_unest: n_unest,
-        n_unest_closed: n_unest_closed,
-        t_spent: t_spent,
-        e_implied: e_implied,
-        e_effective: e_effective,
-        e_closed_effective: e_closed_effective
+        f: f
       }
     }
   end
 
   # Generates tooltip text for a specific metric
-  #
-  # @param metric_name [Symbol] :progress, :spent, :efficiency, :eac, :variance
-  # @param metrics [Hash] metrics hash from project_metrics
-  # @return [String] formatted tooltip text
   def metric_tooltip(metric_name, metrics)
     raw = metrics[:raw]
     case metric_name
     when :progress
-      "Прогресс (% выполненной работы)\n" \
+      "Прогресс (% выполнения работы)\n" \
       "════════════════════════════════\n" \
-      "Формула: (E_closed_eff / E_effective) × 100%\n" \
+      "Формула: E_closed / E_total × 100%\n" \
       "════════════════════════════════\n" \
       "E_total (сумма оценок): #{format_metric_hours(raw[:e_total])} ч\n" \
       "E_closed (закрытые): #{format_metric_hours(raw[:e_closed])} ч\n" \
-      "N_unest (без оценки): #{raw[:n_unest]} шт\n" \
-      "N_unest_closed (закр. без оценки): #{raw[:n_unest_closed]} шт\n" \
-      "E_implied (подразум. оценка): #{format_metric_hours(raw[:e_implied])} ч\n" \
       "════════════════════════════════\n" \
-      "E_effective = #{format_metric_hours(raw[:e_total])} + (#{raw[:n_unest]} × #{format_metric_hours(raw[:e_implied])}) = #{format_metric_hours(raw[:e_effective])} ч\n" \
-      "E_closed_eff = #{format_metric_hours(raw[:e_closed])} + (#{raw[:n_unest_closed]} × #{format_metric_hours(raw[:e_implied])}) = #{format_metric_hours(raw[:e_closed_effective])} ч\n" \
-      "════════════════════════════════\n" \
-      "Расчёт: (#{format_metric_hours(raw[:e_closed_effective])} / #{format_metric_hours(raw[:e_effective])}) × 100% = #{format_metric_percent(metrics[:progress])}"
+      "Расчёт: #{format_metric_hours(raw[:e_closed])} / #{format_metric_hours(raw[:e_total])} × 100% = #{format_metric_percent(metrics[:progress])}"
     when :spent
-      "Освоение бюджета (% потраченного)\n" \
+      "Освоение (% расхода бюджета)\n" \
       "════════════════════════════════\n" \
-      "Формула: (T_spent / B) × 100%\n" \
+      "Формула: F / B × 100%\n" \
       "════════════════════════════════\n" \
-      "T_spent (списано): #{format_metric_hours(raw[:t_spent])} ч\n" \
+      "F (факт. трудозатраты): #{format_metric_hours(raw[:f])} ч\n" \
       "B (бюджет): #{format_metric_hours(raw[:budget])} ч\n" \
       "════════════════════════════════\n" \
-      "Расчёт: (#{format_metric_hours(raw[:t_spent])} / #{format_metric_hours(raw[:budget])}) × 100% = #{format_metric_percent(metrics[:spent])}"
-    when :efficiency
-      eff_status = if metrics[:efficiency] > 1.0
-                     "> 1.0 — делаем больше, чем тратим ✓"
-                   elsif metrics[:efficiency] == 1.0
-                     "= 1.0 — по плану"
-                   else
-                     "< 1.0 — тратим больше, чем делаем ✗"
-                   end
-      "Эффективность (темп выполнения)\n" \
+      "Расчёт: #{format_metric_hours(raw[:f])} / #{format_metric_hours(raw[:budget])} × 100% = #{format_metric_percent(metrics[:spent])}"
+    when :cpi
+      status = cpi_status(metrics[:cpi])
+      "CPI — Эффективность\n" \
       "════════════════════════════════\n" \
-      "Формула: Progress / Spent\n" \
+      "Формула: E_closed / F\n" \
       "════════════════════════════════\n" \
-      "Progress: #{format_metric_percent(metrics[:progress])}\n" \
-      "Spent: #{format_metric_percent(metrics[:spent])}\n" \
+      "E_closed: #{format_metric_hours(raw[:e_closed])} ч\n" \
+      "F (факт): #{format_metric_hours(raw[:f])} ч\n" \
       "════════════════════════════════\n" \
-      "Расчёт: #{format_metric_percent(metrics[:progress])} / #{format_metric_percent(metrics[:spent])} = #{number_with_precision(metrics[:efficiency], precision: 2)}\n" \
+      "Расчёт: #{format_metric_hours(raw[:e_closed])} / #{format_metric_hours(raw[:f])} = #{number_with_precision(metrics[:cpi], precision: 2)}\n" \
       "════════════════════════════════\n" \
-      "#{eff_status}"
+      "#{status[:icon]} #{status[:text]}"
     when :eac
-      "EAC — Прогноз затрат при завершении\n" \
+      "EAC — Прогноз итоговых затрат\n" \
       "════════════════════════════════\n" \
-      "Формула: T_spent × (E_effective / E_closed_eff)\n" \
+      "Формула: E_total / CPI\n" \
       "════════════════════════════════\n" \
-      "T_spent: #{format_metric_hours(raw[:t_spent])} ч\n" \
-      "E_effective: #{format_metric_hours(raw[:e_effective])} ч\n" \
-      "E_closed_eff: #{format_metric_hours(raw[:e_closed_effective])} ч\n" \
+      "E_total: #{format_metric_hours(raw[:e_total])} ч\n" \
+      "CPI: #{number_with_precision(metrics[:cpi], precision: 2)}\n" \
       "════════════════════════════════\n" \
-      "Расчёт: #{format_metric_hours(raw[:t_spent])} × (#{format_metric_hours(raw[:e_effective])} / #{format_metric_hours(raw[:e_closed_effective])}) = #{format_metric_hours(metrics[:eac])} ч"
+      "Расчёт: #{format_metric_hours(raw[:e_total])} / #{number_with_precision(metrics[:cpi], precision: 2)} = #{format_metric_hours(metrics[:eac])} ч"
     when :variance
-      var_status = if metrics[:variance] > 0
-                     "Экономия: +#{format_metric_hours(metrics[:variance])} ч ✓"
-                   elsif metrics[:variance] < 0
-                     "Перерасход: #{format_metric_hours(metrics[:variance])} ч ✗"
-                   else
-                     "Точно по бюджету"
-                   end
+      status = if metrics[:variance] > 0
+                 "Профицит: уложимся в бюджет"
+               elsif metrics[:variance] < 0
+                 "Дефицит: бюджета не хватит"
+               else
+                 "Точно по бюджету"
+               end
       "Variance — Отклонение от бюджета\n" \
       "════════════════════════════════\n" \
       "Формула: B - EAC\n" \
@@ -145,10 +109,22 @@ module ProjectsTimeTrackingHelper
       "EAC (прогноз): #{format_metric_hours(metrics[:eac])} ч\n" \
       "════════════════════════════════\n" \
       "Расчёт: #{format_metric_hours(raw[:budget])} - #{format_metric_hours(metrics[:eac])} = #{format_metric_hours(metrics[:variance])} ч\n" \
+      "(#{format_metric_percent(metrics[:variance_percent])})\n" \
       "════════════════════════════════\n" \
-      "#{var_status}"
+      "#{status}"
     else
       ''
+    end
+  end
+
+  # CPI status with icon and text
+  def cpi_status(cpi)
+    if cpi >= 1.0
+      { icon: '🟢', text: 'Норма — работаем по плану или экономим', color: '#ccffcc' }
+    elsif cpi >= 0.9
+      { icon: '🟡', text: 'Внимание — небольшой перерасход', color: '#ffffcc' }
+    else
+      { icon: '🔴', text: 'Проблема — значительный перерасход', color: '#ffcccc' }
     end
   end
 
@@ -163,25 +139,21 @@ module ProjectsTimeTrackingHelper
   end
 
   # Returns background color for metric based on value thresholds
-  def metric_color(metric_name, value)
+  def metric_color(metric_name, value, metrics = nil)
     case metric_name
     when :progress
-      nil # no color for progress
+      nil
     when :spent
       value > 100 ? '#ffcccc' : nil
-    when :efficiency
-      if value < 0.8
-        '#ffcccc' # red - bad
-      elsif value > 1.2
-        '#ccffcc' # green - good
-      end
+    when :cpi
+      cpi_status(value)[:color]
     when :eac
-      nil # color handled by variance
+      nil
     when :variance
       if value < 0
-        '#ffcccc' # red - over budget
+        '#ffcccc' # red - deficit
       elsif value > 0
-        '#ccffcc' # green - under budget
+        '#ccffcc' # green - surplus
       end
     end
   end

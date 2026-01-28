@@ -84,11 +84,11 @@
         <th><%= l(:field_estimated_hours) %></th>
         <th><%= l(:label_spent_time) %></th>
         <% if budget_cf_id.present? %>
-          <th title="% выполненной работы">Прогресс</th>
-          <th title="% потраченного бюджета">Освоение</th>
-          <th title="Progress / Spent">Эффект.</th>
-          <th title="Прогноз затрат при завершении">EAC</th>
-          <th title="Отклонение от бюджета (+ экономия, - перерасход)">Variance</th>
+          <th title="% выполнения работы (E_closed / E_total)">Прогресс</th>
+          <th title="% расхода бюджета (F / B)">Освоение</th>
+          <th title="CPI = E_closed / F (≥1 норма, <0.9 проблема)">CPI</th>
+          <th title="Прогноз итоговых затрат (E_total / CPI)">EAC</th>
+          <th title="Отклонение от бюджета (B - EAC)">Variance</th>
         <% end %>
         <% # /PATCHED %>
       </tr>
@@ -144,9 +144,9 @@
                     style="<%= "background-color: #{metric_color(:spent, ptt_metrics[:spent])};" if metric_color(:spent, ptt_metrics[:spent]) %>">
                   <%= format_metric_percent(ptt_metrics[:spent]) %>
                 </td>
-                <td title="<%= metric_tooltip(:efficiency, ptt_metrics) %>"
-                    style="<%= "background-color: #{metric_color(:efficiency, ptt_metrics[:efficiency])};" if metric_color(:efficiency, ptt_metrics[:efficiency]) %>">
-                  <%= number_with_precision(ptt_metrics[:efficiency], precision: 2) %>
+                <td title="<%= metric_tooltip(:cpi, ptt_metrics) %>"
+                    style="<%= "background-color: #{metric_color(:cpi, ptt_metrics[:cpi])};" if metric_color(:cpi, ptt_metrics[:cpi]) %>">
+                  <%= number_with_precision(ptt_metrics[:cpi], precision: 2) %>
                 </td>
                 <td title="<%= metric_tooltip(:eac, ptt_metrics) %>">
                   <%= format_metric_hours(ptt_metrics[:eac]) %>
