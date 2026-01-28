@@ -41,7 +41,7 @@
       </li>
       <li class="ptt_cpi" title="<%= h(metric_tooltip(:cpi, ptt_metrics)) %>"
           style="<%= "background-color: #{metric_color(:cpi, ptt_metrics[:cpi])};" if metric_color(:cpi, ptt_metrics[:cpi]) %>">
-        <span class="label">CPI</span>: <%= cpi_status(ptt_metrics[:cpi])[:icon] %> <strong><%= number_with_precision(ptt_metrics[:cpi], precision: 2) %></strong>
+        <span class="label">CPI</span>: <strong><%= number_with_precision(ptt_metrics[:cpi], precision: 2) %></strong>
       </li>
       <li class="ptt_eac" title="<%= h(metric_tooltip(:eac, ptt_metrics)) %>">
         <span class="label">EAC (прогноз)</span>: <%= format_metric_hours(ptt_metrics[:eac]) %> ч
