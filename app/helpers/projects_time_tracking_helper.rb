@@ -286,7 +286,7 @@ module ProjectsTimeTrackingHelper
     cpi = e_closed / f
 
     # EAC = E_total / CPI
-    eac = e_total / cpi
+    eac = cpi > 0 ? e_total / cpi : 0
 
     # Variance = B - EAC
     variance = budget - eac
