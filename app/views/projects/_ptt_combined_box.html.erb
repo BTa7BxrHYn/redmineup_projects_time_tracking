@@ -20,11 +20,11 @@
       grouped_histories = histories_to_show.group_by { |h| [h.user_id, h.created_at.to_i / 60] }
 %>
 
-<div style="display: flex; gap: 20px; align-items: stretch; margin-bottom: 20px;">
+<div style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
   <!-- Budget metrics box (left) -->
-  <div class="mypage-box" id="block-ptt-budget" style="flex: 1; display: flex; flex-direction: column;">
-    <h3 style="flex-shrink: 0;">Бюджет проекта</h3>
-    <ul class="dashboard-list" style="flex: 1; margin: 0;">
+  <div class="mypage-box" id="block-ptt-budget" style="flex: 1;">
+    <h3>Бюджет проекта</h3>
+    <ul class="dashboard-list">
       <li class="ptt_budget">
         <span class="label">Бюджет (B)</span>: <strong><%= format_metric_hours(ptt_budget) %></strong> ч
       </li>
@@ -61,8 +61,8 @@
   </div>
 
   <!-- History box (right) -->
-  <div class="mypage-box" id="block-ptt-history" style="flex: 1; display: flex; flex-direction: column;">
-    <h3 style="flex-shrink: 0;">
+  <div class="mypage-box" id="block-ptt-history" style="flex: 1;">
+    <h3>
       История изменений
       <% if ptt_total_count > ptt_history_limit && !ptt_show_all %>
         <span style="font-weight: normal; font-size: 0.85em; color: #666;">
@@ -70,7 +70,7 @@
         </span>
       <% end %>
     </h3>
-    <div style="flex: 1; overflow-y: auto; min-height: 0;">
+    <div style="max-height: 250px; overflow-y: auto;">
       <% if ptt_total_count > 0 %>
         <% grouped_histories.each do |(user_id, time_key), entries| %>
           <% entry = entries.first %>
