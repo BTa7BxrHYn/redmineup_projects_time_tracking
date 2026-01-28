@@ -1,0 +1,37 @@
+<%
+  # Show history if user can view project
+  if @project.ptt_histories.any?
+    # Group history entries by timestamp (within 1 minute = same "journal")
+    grouped_histories = @project.ptt_histories.sorted.includes(:user).group_by do |h|
+      [h.user_id, h.created_at.to_i / 60]
+    end
+%>
+
+<div id="ptt-history" class="box">
+  <h3 class="icon icon-history">История изменений</h3>
+
+  <% grouped_histories.each do |(user_id, time_key), entries| %>
+    <% entry = entries.first %>
+    <div class="journal" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-left: 3px solid #ccc;">
+      <div style="margin-bottom: 8px; color: #666;">
+        <strong><%= link_to_user(entry.user) %></strong>
+        —
+        <%= format_time(entry.created_at) %>
+      </div>
+      <ul class="details" style="margin: 0; padding-left: 20px;">
+        <% entries.each do |h| %>
+          <li>
+            <strong><%= h.field_label %></strong>:
+            <% if h.old_value.present? %>
+              <del style="color: #900; background: #fdd;"><%= h.formatted_old_value %></del>
+              →
+            <% end %>
+            <ins style="color: #090; background: #dfd;"><%= h.formatted_new_value %></ins>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+</div>
+
+<% end %>

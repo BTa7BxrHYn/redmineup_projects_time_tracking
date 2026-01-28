@@ -1,8 +1,8 @@
 <fieldset class="box">
-  <legend>Настройки плагина</legend>
+  <legend>Кастомные поля проекта</legend>
 
   <p>
-    <label for="settings_budget_custom_field_id">Поле бюджета проекта:</label><br>
+    <label for="settings_budget_custom_field_id">Бюджет проекта (число):</label><br>
     <select name="settings[budget_custom_field_id]" id="settings_budget_custom_field_id">
       <option value="">-- Не выбрано --</option>
       <% ProjectCustomField.where(field_format: ['float', 'int']).sorted.each do |cf| %>
@@ -14,7 +14,35 @@
   </p>
 
   <p>
-    <label>Статусы "Закрыто":</label>
+    <label for="settings_start_date_custom_field_id">Начало проекта (дата):</label><br>
+    <select name="settings[start_date_custom_field_id]" id="settings_start_date_custom_field_id">
+      <option value="">-- Не выбрано --</option>
+      <% ProjectCustomField.where(field_format: 'date').sorted.each do |cf| %>
+        <option value="<%= cf.id %>" <%= 'selected' if settings['start_date_custom_field_id'].to_s == cf.id.to_s %>>
+          <%= cf.name %>
+        </option>
+      <% end %>
+    </select>
+  </p>
+
+  <p>
+    <label for="settings_end_date_custom_field_id">Окончание проекта (дата):</label><br>
+    <select name="settings[end_date_custom_field_id]" id="settings_end_date_custom_field_id">
+      <option value="">-- Не выбрано --</option>
+      <% ProjectCustomField.where(field_format: 'date').sorted.each do |cf| %>
+        <option value="<%= cf.id %>" <%= 'selected' if settings['end_date_custom_field_id'].to_s == cf.id.to_s %>>
+          <%= cf.name %>
+        </option>
+      <% end %>
+    </select>
+  </p>
+</fieldset>
+
+<fieldset class="box">
+  <legend>Статусы задач</legend>
+
+  <p>
+    <label>Статусы "Закрыто" (для расчёта E_closed):</label>
   </p>
 
   <% IssueStatus.sorted.each do |status| %>
