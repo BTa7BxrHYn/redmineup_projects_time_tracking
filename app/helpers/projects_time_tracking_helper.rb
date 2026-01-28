@@ -351,9 +351,12 @@ module ProjectsTimeTrackingHelper
       "════════════════════════════════\n" \
       "Расчёт: #{format_metric_hours(raw[:e_total])} / #{number_with_precision(metrics[:cpi], precision: 2)} = #{format_metric_hours(metrics[:eac])} ч"
     when :variance
-      status = if metrics[:variance] > 0
+      variance = metrics[:variance]
+      status = if variance.nil?
+                 "Нет данных"
+               elsif variance > 0
                  "Профицит: уложимся в бюджет"
-               elsif metrics[:variance] < 0
+               elsif variance < 0
                  "Дефицит: бюджета не хватит"
                else
                  "Точно по бюджету"
