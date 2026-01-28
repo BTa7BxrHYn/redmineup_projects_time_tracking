@@ -1,0 +1,112 @@
+<%
+  budget_cf_id = ptt_budget_custom_field_id
+
+  if budget_cf_id && User.current.allowed_to?(:view_time_entries, @project)
+    ptt_budget = ptt_budget_for_project(@project)
+
+    if ptt_budget && ptt_budget > 0
+      ptt_project_issues = ptt_issues_data_for_project(@project)
+      ptt_e_total = ptt_project_issues[:estimated]
+      ptt_e_closed = ptt_project_issues[:closed_estimated]
+      ptt_spent = ptt_time_spent_for_project(@project)
+      ptt_metrics = project_metrics(ptt_budget, ptt_project_issues, ptt_spent)
+
+      # History data
+      ptt_history_limit = ProjectsTimeTrackingHelper::PTT_HISTORY_LIMIT
+      ptt_show_all = params[:ptt_show_all_history] == '1'
+      base_query = @project.ptt_histories.sorted
+      ptt_total_count = base_query.count
+      histories_to_show = ptt_show_all ? base_query.includes(:user) : base_query.includes(:user).limit(ptt_history_limit)
+      grouped_histories = histories_to_show.group_by { |h| [h.user_id, h.created_at.to_i / 60] }
+%>
+
+<div style="display: flex; gap: 20px; margin-bottom: 20px;">
+  <!-- Budget metrics box -->
+  <div class="mypage-box" id="block-ptt-budget" style="flex: 1; min-width: 250px;">
+    <h3>Бюджет проекта</h3>
+    <ul class="dashboard-list">
+      <li class="ptt_budget">
+        <span class="label">Бюджет (B)</span>: <strong><%= format_metric_hours(ptt_budget) %></strong> ч
+      </li>
+      <li class="ptt_estimated">
+        <span class="label">Оценки (E_total)</span>: <%= format_metric_hours(ptt_e_total) %> ч
+      </li>
+      <li class="ptt_closed">
+        <span class="label">Закрыто (E_closed)</span>: <%= format_metric_hours(ptt_e_closed) %> ч
+      </li>
+      <li class="ptt_spent">
+        <span class="label">Факт (F)</span>: <%= format_metric_hours(ptt_spent) %> ч
+      </li>
+      <% if ptt_metrics %>
+        <li class="ptt_progress" title="<%= h(metric_tooltip(:progress, ptt_metrics)) %>">
+          <span class="label">Прогресс</span>: <%= format_metric_percent(ptt_metrics[:progress]) %>
+        </li>
+        <li class="ptt_spent_pct" title="<%= h(metric_tooltip(:spent, ptt_metrics)) %>"
+            style="<%= "background-color: #{metric_color(:spent, ptt_metrics[:spent])};" if metric_color(:spent, ptt_metrics[:spent]) %>">
+          <span class="label">Освоение</span>: <%= format_metric_percent(ptt_metrics[:spent]) %>
+        </li>
+        <li class="ptt_cpi" title="<%= h(metric_tooltip(:cpi, ptt_metrics)) %>"
+            style="<%= "background-color: #{metric_color(:cpi, ptt_metrics[:cpi])};" if metric_color(:cpi, ptt_metrics[:cpi]) %>">
+          <span class="label">CPI</span>: <strong><%= number_with_precision(ptt_metrics[:cpi], precision: 2) %></strong>
+        </li>
+        <li class="ptt_eac" title="<%= h(metric_tooltip(:eac, ptt_metrics)) %>">
+          <span class="label">EAC (прогноз)</span>: <%= format_metric_hours(ptt_metrics[:eac]) %> ч
+        </li>
+        <li class="ptt_variance" title="<%= h(metric_tooltip(:variance, ptt_metrics)) %>"
+            style="<%= "background-color: #{metric_color(:variance, ptt_metrics[:variance])};" if metric_color(:variance, ptt_metrics[:variance]) %>">
+          <span class="label">Variance</span>: <%= ptt_metrics[:variance] >= 0 ? '+' : '' %><%= format_metric_hours(ptt_metrics[:variance]) %> ч (<%= format_metric_percent(ptt_metrics[:variance_percent]) %>)
+        </li>
+      <% end %>
+    </ul>
+  </div>
+
+  <!-- History box -->
+  <div class="mypage-box" id="block-ptt-history" style="flex: 1; min-width: 300px;">
+    <h3>
+      История изменений
+      <% if ptt_total_count > ptt_history_limit && !ptt_show_all %>
+        <span style="font-weight: normal; font-size: 0.85em; color: #666;">
+          (последние <%= ptt_history_limit %> из <%= ptt_total_count %>)
+        </span>
+      <% end %>
+    </h3>
+    <% if ptt_total_count > 0 %>
+      <% grouped_histories.each do |(user_id, time_key), entries| %>
+        <% entry = entries.first %>
+        <div style="margin-bottom: 10px; padding: 8px; background: #f9f9f9; border-left: 3px solid #ccc;">
+          <div style="margin-bottom: 5px; color: #666; font-size: 0.9em;">
+            <strong><%= link_to_user(entry.user) %></strong>
+            — <%= format_time(entry.created_at) %>
+          </div>
+          <ul style="margin: 0; padding-left: 18px; font-size: 0.9em;">
+            <% entries.each do |h| %>
+              <li>
+                <strong><%= h.field_label %></strong>:
+                <% if h.old_value.present? %>
+                  <del style="color: #900; background: #fdd;"><%= h.formatted_old_value %></del> →
+                <% end %>
+                <ins style="color: #090; background: #dfd;"><%= h.formatted_new_value %></ins>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+      <% if ptt_total_count > ptt_history_limit %>
+        <p style="text-align: center; margin: 5px 0 0;">
+          <% if ptt_show_all %>
+            <%= link_to 'Показать последние', project_path(@project), class: 'icon icon-collapsed' %>
+          <% else %>
+            <%= link_to "Все #{ptt_total_count} изменений", project_path(@project, ptt_show_all_history: '1'), class: 'icon icon-expanded' %>
+          <% end %>
+        </p>
+      <% end %>
+    <% else %>
+      <p style="color: #999; font-style: italic; margin: 10px 0;">Изменений пока нет</p>
+    <% end %>
+  </div>
+</div>
+
+<%
+    end
+  end
+%>
