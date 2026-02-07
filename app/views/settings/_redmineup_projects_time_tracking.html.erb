@@ -54,6 +54,19 @@
     </select>
     <em class="info">Опционально - для отслеживания истории изменений</em>
   </p>
+
+  <p>
+    <label for="settings_comment_custom_field_id">Комментарий проекта (текст):</label><br>
+    <select name="settings[comment_custom_field_id]" id="settings_comment_custom_field_id">
+      <option value="">-- Не выбрано --</option>
+      <% ProjectCustomField.where(field_format: %w[text string]).sorted.each do |cf| %>
+        <option value="<%= cf.id %>" <%= 'selected' if settings['comment_custom_field_id'].to_s == cf.id.to_s %>>
+          <%= cf.name %>
+        </option>
+      <% end %>
+    </select>
+    <em class="info">Опционально - для сохранения истории изменений комментариев (без подсветки)</em>
+  </p>
 </fieldset>
 
 <fieldset class="box">

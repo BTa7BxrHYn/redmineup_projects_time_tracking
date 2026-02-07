@@ -14,6 +14,7 @@ Redmine::Plugin.register :redmineup_projects_time_tracking do
       'budget_custom_field_id' => '',
       'start_date_custom_field_id' => '',
       'end_date_custom_field_id' => '',
+      'comment_custom_field_id' => '',
       'closed_status_ids' => []
     },
     partial: 'settings/redmineup_projects_time_tracking'

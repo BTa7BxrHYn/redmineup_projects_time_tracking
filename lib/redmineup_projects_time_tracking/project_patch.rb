@@ -26,7 +26,8 @@ module RedmineupProjectsTimeTracking
       tracked_fields = {
         'budget' => settings['budget_custom_field_id'],
         'start_date' => settings['start_date_custom_field_id'],
-        'end_date' => settings['end_date_custom_field_id']
+        'end_date' => settings['end_date_custom_field_id'],
+        'comment' => settings['comment_custom_field_id']
       }
 
       # Find which field this custom value belongs to

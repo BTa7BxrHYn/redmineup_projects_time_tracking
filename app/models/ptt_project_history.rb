@@ -3,12 +3,16 @@
 class PttProjectHistory < ActiveRecord::Base
   self.table_name = 'ptt_project_histories'
 
-  ALLOWED_FIELDS = %w[budget start_date end_date].freeze
+  ALLOWED_FIELDS = %w[budget start_date end_date comment].freeze
+
+  # Fields that trigger yellow highlighting in the project list
+  HIGHLIGHTABLE_FIELDS = %w[budget start_date end_date].freeze
 
   FIELD_LABELS = {
     'start_date' => 'Начало проекта',
     'end_date' => 'Окончание проекта',
-    'budget' => 'Бюджет проекта'
+    'budget' => 'Бюджет проекта',
+    'comment' => 'Комментарий'
   }.freeze
 
   belongs_to :project
@@ -50,6 +54,8 @@ class PttProjectHistory < ActiveRecord::Base
       end
     when 'budget'
       "#{value} ч"
+    when 'comment'
+      value.to_s.truncate(100)
     else
       value
     end

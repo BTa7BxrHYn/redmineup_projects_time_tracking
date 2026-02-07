@@ -131,16 +131,22 @@ module ProjectsTimeTrackingHelper
     @ptt_cf_to_field_mapping ||= {
       ptt_settings['budget_custom_field_id'].to_s => 'budget',
       ptt_settings['start_date_custom_field_id'].to_s => 'start_date',
-      ptt_settings['end_date_custom_field_id'].to_s => 'end_date'
+      ptt_settings['end_date_custom_field_id'].to_s => 'end_date',
+      ptt_settings['comment_custom_field_id'].to_s => 'comment'
     }.compact.reject { |k, _| k.blank? }
   end
 
-  # Checks if custom field has history for project
+  # Checks if custom field has highlightable history for project.
+  # Only real changes count (old_value present). Comment field is never highlighted.
   def ptt_cf_has_history?(project_histories, cf_id)
     return false unless project_histories
+
     field_name = ptt_cf_to_field_mapping[cf_id.to_s]
     return false unless field_name
-    project_histories[field_name]&.any?
+    return false unless PttProjectHistory::HIGHLIGHTABLE_FIELDS.include?(field_name)
+
+    entries = project_histories[field_name]
+    entries&.any? { |h| h.old_value.present? }
   end
 
   # Formats value for history display based on field type
@@ -156,6 +162,8 @@ module ProjectsTimeTrackingHelper
       end
     when 'budget'
       "#{value} ч"
+    when 'comment'
+      value.to_s.truncate(100)
     else
       value
     end
@@ -214,6 +222,17 @@ module ProjectsTimeTrackingHelper
         warnings << { type: :error, message: "Выбранное поле #{field == 'start_date' ? 'начала' : 'окончания'} проекта не существует" }
       elsif cf.field_format != 'date'
         warnings << { type: :warning, message: "Поле #{field == 'start_date' ? 'начала' : 'окончания'} должно быть типа 'дата'" }
+      end
+    end
+
+    # Validate comment custom field
+    comment_cf_id = settings['comment_custom_field_id']
+    if comment_cf_id.present?
+      cf = CustomField.find_by(id: comment_cf_id)
+      if cf.nil?
+        warnings << { type: :error, message: 'Выбранное поле комментария не существует' }
+      elsif !%w[text string].include?(cf.field_format)
+        warnings << { type: :warning, message: "Поле комментария должно быть текстовым (текущий тип: #{cf.field_format})" }
       end
     end
 

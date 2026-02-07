@@ -1,7 +1,7 @@
 <%
   # Show history with pagination
   ptt_history_limit = ProjectsTimeTrackingHelper::PTT_HISTORY_LIMIT
-  ptt_show_all = params[:ptt_show_all_history] == '1'
+  ptt_show_all = params[:ptt_show_all_history].to_s == '1'
 
   base_query = @project.ptt_histories.sorted
   ptt_total_count = base_query.count
@@ -29,7 +29,7 @@
     <% entry = entries.first %>
     <div class="journal" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-left: 3px solid #ccc;">
       <div style="margin-bottom: 8px; color: #666;">
-        <strong><%= link_to_user(entry.user) %></strong>
+        <strong><%= entry.user ? link_to_user(entry.user) : '[удалён]' %></strong>
         —
         <%= format_time(entry.created_at) %>
       </div>
@@ -37,11 +37,15 @@
         <% entries.each do |h| %>
           <li>
             <strong><%= h.field_label %></strong>:
-            <% if h.old_value.present? %>
-              <del style="color: #900; background: #fdd;"><%= h.formatted_old_value %></del>
-              →
+            <% if h.field_name == 'comment' %>
+              <%= h.formatted_new_value %>
+            <% else %>
+              <% if h.old_value.present? %>
+                <del style="color: #900; background: #fdd;"><%= h.formatted_old_value %></del>
+                →
+              <% end %>
+              <ins style="color: #090; background: #dfd;"><%= h.formatted_new_value %></ins>
             <% end %>
-            <ins style="color: #090; background: #dfd;"><%= h.formatted_new_value %></ins>
           </li>
         <% end %>
       </ul>
