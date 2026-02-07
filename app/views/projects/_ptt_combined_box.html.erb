@@ -107,7 +107,7 @@
                 <li>
                   <strong><%= h.field_label %></strong>:
                   <% if h.field_name == 'comment' %>
-                    <%= h.formatted_new_value %>
+                    <div style="white-space: pre-wrap; word-break: break-word;"><%= h.formatted_new_value %></div>
                   <% else %>
                     <% if h.old_value.present? %>
                       <del style="color: #900; background: #fdd;"><%= h.formatted_old_value %></del> →

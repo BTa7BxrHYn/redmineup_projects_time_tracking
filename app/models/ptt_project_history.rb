@@ -55,7 +55,7 @@ class PttProjectHistory < ActiveRecord::Base
     when 'budget'
       "#{value} ч"
     when 'comment'
-      value.to_s.truncate(100)
+      value.to_s
     else
       value
     end
