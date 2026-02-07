@@ -178,7 +178,11 @@ module ProjectsTimeTrackingHelper
     entries = project_histories[field_name]
     return nil unless entries&.any?
 
-    lines = entries.map do |h|
+    # Show only real changes (old_value present) in tooltip
+    real_changes = entries.select { |h| h.old_value.present? }
+    return nil unless real_changes.any?
+
+    lines = real_changes.map do |h|
       old_val = ptt_format_history_value(h.old_value, field_name)
       new_val = ptt_format_history_value(h.new_value, field_name)
       "#{old_val} → #{new_val}"
