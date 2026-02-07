@@ -103,16 +103,16 @@
               — <%= format_time(entry.created_at) %>
             </div>
             <ul style="margin: 0; padding-left: 18px; font-size: 0.9em;">
-              <% entries.each do |h| %>
+              <% entries.each do |hist| %>
                 <li>
-                  <strong><%= h.field_label %></strong>:
-                  <% if h.field_name == 'comment' %>
-                    <div style="white-space: pre-wrap; word-break: break-word;"><%= h.formatted_new_value %></div>
+                  <strong><%= hist.field_label %></strong>:
+                  <% if hist.field_name == 'comment' %>
+                    <div style="white-space: pre-wrap; word-break: break-word;"><%= h(hist.formatted_new_value) %></div>
                   <% else %>
-                    <% if h.old_value.present? %>
-                      <del style="color: #900; background: #fdd;"><%= h.formatted_old_value %></del> →
+                    <% if hist.old_value.present? %>
+                      <del style="color: #900; background: #fdd;"><%= hist.formatted_old_value %></del> →
                     <% end %>
-                    <ins style="color: #090; background: #dfd;"><%= h.formatted_new_value %></ins>
+                    <ins style="color: #090; background: #dfd;"><%= hist.formatted_new_value %></ins>
                   <% end %>
                 </li>
               <% end %>

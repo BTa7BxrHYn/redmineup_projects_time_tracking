@@ -10,8 +10,8 @@
     histories_to_show = ptt_show_all ? base_query.includes(:user) : base_query.includes(:user).limit(ptt_history_limit)
 
     # Group history entries by timestamp (within 1 minute = same "journal")
-    grouped_histories = histories_to_show.group_by do |h|
-      [h.user_id, h.created_at.to_i / 60]
+    grouped_histories = histories_to_show.group_by do |hist|
+      [hist.user_id, hist.created_at.to_i / 60]
     end
 %>
 
@@ -34,17 +34,17 @@
         <%= format_time(entry.created_at) %>
       </div>
       <ul class="details" style="margin: 0; padding-left: 20px;">
-        <% entries.each do |h| %>
+        <% entries.each do |hist| %>
           <li>
-            <strong><%= h.field_label %></strong>:
-            <% if h.field_name == 'comment' %>
-              <div style="white-space: pre-wrap; word-break: break-word;"><%= h.formatted_new_value %></div>
+            <strong><%= hist.field_label %></strong>:
+            <% if hist.field_name == 'comment' %>
+              <div style="white-space: pre-wrap; word-break: break-word;"><%= h(hist.formatted_new_value) %></div>
             <% else %>
-              <% if h.old_value.present? %>
-                <del style="color: #900; background: #fdd;"><%= h.formatted_old_value %></del>
+              <% if hist.old_value.present? %>
+                <del style="color: #900; background: #fdd;"><%= hist.formatted_old_value %></del>
                 →
               <% end %>
-              <ins style="color: #090; background: #dfd;"><%= h.formatted_new_value %></ins>
+              <ins style="color: #090; background: #dfd;"><%= hist.formatted_new_value %></ins>
             <% end %>
           </li>
         <% end %>

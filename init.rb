@@ -4,7 +4,7 @@ Redmine::Plugin.register :redmineup_projects_time_tracking do
   name 'Projects Time Tracking'
   author 'dread@altuera.com'
   description 'Time tracking columns for projects table with budget metrics and history'
-  version '0.3.2'
+  version '0.4.0'
   author_url 'mailto:dread@altuera.com'
 
   requires_redmine version_or_higher: '5.1'
