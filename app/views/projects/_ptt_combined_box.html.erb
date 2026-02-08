@@ -17,7 +17,7 @@
       base_query = @project.ptt_histories.sorted.includes(:user)
 
       if ptt_show_all
-        histories_to_show = base_query.to_a
+        histories_to_show = base_query.limit(500).to_a
         ptt_total_count = histories_to_show.size
         ptt_has_more = false
       else
@@ -28,7 +28,7 @@
         ptt_total_count = ptt_has_more ? base_query.count : histories_to_show.size
       end
 
-      grouped_histories = histories_to_show.group_by { |h| [h.user_id, h.created_at.to_i / 60] }
+      grouped_histories = histories_to_show.group_by { |h| [h.user_id || h.id, h.created_at.to_i / 60] }
 %>
 
 <div style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
@@ -52,8 +52,7 @@
         <li class="ptt_progress" title="<%= h(metric_tooltip(:progress, ptt_metrics)) %>">
           <span class="label">Прогресс</span>: <%= format_metric_percent(ptt_metrics[:progress]) %>
         </li>
-        <li class="ptt_spent_pct" title="<%= h(metric_tooltip(:spent, ptt_metrics)) %>"
-            style="<%= "background-color: #{metric_color(:spent, ptt_metrics[:spent])};" if metric_color(:spent, ptt_metrics[:spent]) %>">
+        <li class="ptt_spent_pct <%= metric_css_class(:spent, ptt_metrics[:spent]) %>" title="<%= h(metric_tooltip(:spent, ptt_metrics)) %>">
           <span class="label">Освоение</span>: <%= format_metric_percent(ptt_metrics[:spent]) %>
         </li>
         <% if ptt_metrics[:incomplete] %>
@@ -67,15 +66,13 @@
             <span class="label">Variance</span>: <em>нет данных</em>
           </li>
         <% else %>
-          <li class="ptt_cpi" title="<%= h(metric_tooltip(:cpi, ptt_metrics)) %>"
-              style="<%= "background-color: #{metric_color(:cpi, ptt_metrics[:cpi])};" if metric_color(:cpi, ptt_metrics[:cpi]) %>">
+          <li class="ptt_cpi <%= metric_css_class(:cpi, ptt_metrics[:cpi]) %>" title="<%= h(metric_tooltip(:cpi, ptt_metrics)) %>">
             <span class="label">CPI</span>: <strong><%= number_with_precision(ptt_metrics[:cpi], precision: 2) %></strong>
           </li>
           <li class="ptt_eac" title="<%= h(metric_tooltip(:eac, ptt_metrics)) %>">
             <span class="label">EAC (прогноз)</span>: <%= format_metric_hours(ptt_metrics[:eac]) %> ч
           </li>
-          <li class="ptt_variance" title="<%= h(metric_tooltip(:variance, ptt_metrics)) %>"
-              style="<%= "background-color: #{metric_color(:variance, ptt_metrics[:variance])};" if metric_color(:variance, ptt_metrics[:variance]) %>">
+          <li class="ptt_variance <%= metric_css_class(:variance, ptt_metrics[:variance]) %>" title="<%= h(metric_tooltip(:variance, ptt_metrics)) %>">
             <span class="label">Variance</span>: <%= ptt_metrics[:variance] >= 0 ? '+' : '' %><%= format_metric_hours(ptt_metrics[:variance]) %> ч (<%= format_metric_percent(ptt_metrics[:variance_percent]) %>)
           </li>
         <% end %>

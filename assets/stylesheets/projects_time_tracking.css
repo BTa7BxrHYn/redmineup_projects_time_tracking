@@ -5,12 +5,10 @@ table.projects td[title] {
   cursor: help;
 }
 
-/* Tooltip enhancement - uses native browser tooltips via title attribute */
-/* For better tooltip rendering, the title attribute contains preformatted text */
-
 /* Color indicators */
 .ptt-overbudget {
   background-color: #ffcccc;
+  color: black;
 }
 
 .ptt-warning {
@@ -19,4 +17,9 @@ table.projects td[title] {
 
 .ptt-good {
   background-color: #ccffcc;
+}
+
+/* History highlight in project list */
+.ptt-history-changed {
+  background-color: #ffffcc;
 }

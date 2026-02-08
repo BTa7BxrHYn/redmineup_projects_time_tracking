@@ -82,12 +82,14 @@
             <%
               # Check if column is a tracked custom field with history
               cf_id = column.name.to_s.start_with?('cf_') ? column.name.to_s.sub('cf_', '') : nil
-              has_history = cf_id && ptt_tracked_cf_ids.include?(cf_id) && ptt_cf_has_history?(ptt_project_hist, cf_id)
-              history_style = has_history ? ptt_cf_history_style(ptt_project_hist, cf_id) : nil
+              has_history = cf_id && ptt_tracked_cf_ids.include?(cf_id) &&
+                            User.current.allowed_to?(:view_time_entries, entry) &&
+                            ptt_cf_has_history?(ptt_project_hist, cf_id)
+              history_class = has_history ? ptt_cf_history_class(ptt_project_hist, cf_id) : nil
               history_title = has_history ? ptt_cf_history_tooltip(ptt_project_hist, cf_id) : nil
             %>
             <% if has_history %>
-              <td class="<%= column.css_classes %>" style="<%= history_style %>" title="<%= h(history_title) %>">
+              <td class="<%= column.css_classes %> <%= history_class %>" title="<%= h(history_title) %>">
                 <%= column_content(column, entry) %>
               </td>
             <% else %>
@@ -104,25 +106,25 @@
               ptt_metrics = project_metrics(ptt_budget, ptt_project_issues, ptt_spent)
             %>
             <%= content_tag('td', format_metric_hours(ptt_estimated)) %>
-            <%= content_tag('td', format_metric_hours(ptt_spent), style: (ptt_estimated < ptt_spent ? 'background-color: #ffcccc; color: black;' : '')) %>
+            <%= content_tag('td', format_metric_hours(ptt_spent), class: (ptt_estimated < ptt_spent ? 'ptt-overbudget' : nil)) %>
             <% if budget_cf_id %>
               <% if ptt_metrics %>
                 <td title="<%= h(metric_tooltip(:progress, ptt_metrics)) %>">
                   <%= format_metric_percent(ptt_metrics[:progress]) %>
                 </td>
                 <td title="<%= h(metric_tooltip(:spent, ptt_metrics)) %>"
-                    style="<%= "background-color: #{metric_color(:spent, ptt_metrics[:spent])};" if metric_color(:spent, ptt_metrics[:spent]) %>">
+                    class="<%= metric_css_class(:spent, ptt_metrics[:spent]) %>">
                   <%= format_metric_percent(ptt_metrics[:spent]) %>
                 </td>
                 <td title="<%= h(metric_tooltip(:cpi, ptt_metrics)) %>"
-                    style="<%= "background-color: #{metric_color(:cpi, ptt_metrics[:cpi])};" if metric_color(:cpi, ptt_metrics[:cpi]) %>">
+                    class="<%= metric_css_class(:cpi, ptt_metrics[:cpi]) %>">
                   <%= number_with_precision(ptt_metrics[:cpi], precision: 2) %>
                 </td>
                 <td title="<%= h(metric_tooltip(:eac, ptt_metrics)) %>">
                   <%= format_metric_hours(ptt_metrics[:eac]) %>
                 </td>
                 <td title="<%= h(metric_tooltip(:variance, ptt_metrics)) %>"
-                    style="<%= "background-color: #{metric_color(:variance, ptt_metrics[:variance])};" if metric_color(:variance, ptt_metrics[:variance]) %>">
+                    class="<%= metric_css_class(:variance, ptt_metrics[:variance]) %>">
                   <%= format_metric_hours(ptt_metrics[:variance]) %>
                 </td>
               <% else %>

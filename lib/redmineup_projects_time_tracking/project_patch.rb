@@ -44,7 +44,7 @@ module RedmineupProjectsTimeTracking
         return
       end
 
-      project = Project.find_by(id: customized_id)
+      project = customized
       return unless project
 
       PttProjectHistory.record_changes(project, User.current, { field_key => [old_val, new_val] })

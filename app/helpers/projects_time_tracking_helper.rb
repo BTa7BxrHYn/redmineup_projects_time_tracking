@@ -110,18 +110,15 @@ module ProjectsTimeTrackingHelper
   def ptt_histories_for_projects(project_ids)
     return {} unless project_ids.any?
 
-    # Limit total records to avoid memory issues (5 entries * 3 fields * projects)
-    max_records = project_ids.size * 15
-
     PttProjectHistory
-      .where(project_id: project_ids)
+      .where(project_id: project_ids, field_name: PttProjectHistory::HIGHLIGHTABLE_FIELDS)
       .select(:id, :project_id, :field_name, :old_value, :new_value, :created_at)
       .order(created_at: :desc)
-      .limit(max_records)
+      .limit(project_ids.size * 15)
       .each_with_object({}) do |h, result|
         result[h.project_id] ||= {}
         result[h.project_id][h.field_name] ||= []
-        # Limit to 5 entries per field for tooltip
+        # Limit to 5 entries per field per project for tooltip
         result[h.project_id][h.field_name] << h if result[h.project_id][h.field_name].size < 5
       end
   end
@@ -149,26 +146,6 @@ module ProjectsTimeTrackingHelper
     entries&.any? { |h| h.old_value.present? }
   end
 
-  # Formats value for history display based on field type
-  def ptt_format_history_value(value, field_name)
-    return '—' if value.blank?
-
-    case field_name
-    when 'start_date', 'end_date'
-      begin
-        Date.parse(value).strftime('%d.%m.%Y')
-      rescue ArgumentError, TypeError
-        value
-      end
-    when 'budget'
-      "#{value} ч"
-    when 'comment'
-      value.to_s
-    else
-      value
-    end
-  end
-
   # Returns tooltip with history for custom field (chronological: was -> became)
   def ptt_cf_history_tooltip(project_histories, cf_id)
     return nil unless project_histories
@@ -183,17 +160,15 @@ module ProjectsTimeTrackingHelper
     return nil unless real_changes.any?
 
     lines = real_changes.map do |h|
-      old_val = ptt_format_history_value(h.old_value, field_name)
-      new_val = ptt_format_history_value(h.new_value, field_name)
-      "#{old_val} → #{new_val}"
+      "#{h.formatted_old_value} → #{h.formatted_new_value}"
     end
 
     "История изменений:\n#{lines.join("\n")}"
   end
 
-  # Returns highlight style if field has history
-  def ptt_cf_history_style(project_histories, cf_id)
-    ptt_cf_has_history?(project_histories, cf_id) ? 'background-color: #ffffcc;' : nil
+  # Returns highlight CSS class if field has history
+  def ptt_cf_history_class(project_histories, cf_id)
+    ptt_cf_has_history?(project_histories, cf_id) ? 'ptt-history-changed' : nil
   end
 
   # ===========================================================================
@@ -204,10 +179,14 @@ module ProjectsTimeTrackingHelper
   def ptt_validate_settings(settings)
     warnings = []
 
+    # Batch load all referenced custom fields
+    cf_ids = %w[budget start_date end_date comment].filter_map { |f| settings["#{f}_custom_field_id"].presence }
+    cf_by_id = CustomField.where(id: cf_ids).index_by { |cf| cf.id.to_s }
+
     # Validate budget custom field
     budget_cf_id = settings['budget_custom_field_id']
     if budget_cf_id.present?
-      cf = CustomField.find_by(id: budget_cf_id)
+      cf = cf_by_id[budget_cf_id.to_s]
       if cf.nil?
         warnings << { type: :error, message: 'Выбранное поле бюджета не существует' }
       elsif !%w[float int].include?(cf.field_format)
@@ -221,7 +200,8 @@ module ProjectsTimeTrackingHelper
     %w[start_date end_date].each do |field|
       cf_id = settings["#{field}_custom_field_id"]
       next unless cf_id.present?
-      cf = CustomField.find_by(id: cf_id)
+
+      cf = cf_by_id[cf_id.to_s]
       if cf.nil?
         warnings << { type: :error, message: "Выбранное поле #{field == 'start_date' ? 'начала' : 'окончания'} проекта не существует" }
       elsif cf.field_format != 'date'
@@ -232,7 +212,7 @@ module ProjectsTimeTrackingHelper
     # Validate comment custom field
     comment_cf_id = settings['comment_custom_field_id']
     if comment_cf_id.present?
-      cf = CustomField.find_by(id: comment_cf_id)
+      cf = cf_by_id[comment_cf_id.to_s]
       if cf.nil?
         warnings << { type: :error, message: 'Выбранное поле комментария не существует' }
       elsif !%w[text string].include?(cf.field_format)
@@ -402,14 +382,14 @@ module ProjectsTimeTrackingHelper
 
   # CPI status with icon and text
   def cpi_status(cpi)
-    return { icon: '⚪', text: 'Нет данных', color: nil } if cpi.nil?
+    return { icon: '⚪', text: 'Нет данных' } if cpi.nil?
 
     if cpi >= 1.0
-      { icon: '🟢', text: 'Норма — работаем по плану или экономим', color: '#ccffcc' }
+      { icon: '🟢', text: 'Норма — работаем по плану или экономим' }
     elsif cpi >= 0.9
-      { icon: '🟡', text: 'Внимание — небольшой перерасход', color: '#ffffcc' }
+      { icon: '🟡', text: 'Внимание — небольшой перерасход' }
     else
-      { icon: '🔴', text: 'Проблема — значительный перерасход', color: '#ffcccc' }
+      { icon: '🔴', text: 'Проблема — значительный перерасход' }
     end
   end
 
@@ -427,24 +407,26 @@ module ProjectsTimeTrackingHelper
     "#{number_with_precision(value, precision: 1)}%"
   end
 
-  # Returns background color for metric based on value thresholds
-  def metric_color(metric_name, value, metrics = nil)
+  # Returns CSS class for metric based on value thresholds
+  def metric_css_class(metric_name, value)
     return nil if value.nil?
 
     case metric_name
-    when :progress
-      nil
     when :spent
-      value > 100 ? '#ffcccc' : nil
+      value > 100 ? 'ptt-overbudget' : nil
     when :cpi
-      cpi_status(value)[:color]
-    when :eac
-      nil
+      if value >= 1.0
+        'ptt-good'
+      elsif value >= 0.9
+        'ptt-warning'
+      else
+        'ptt-overbudget'
+      end
     when :variance
       if value < 0
-        '#ffcccc' # red - deficit
+        'ptt-overbudget'
       elsif value > 0
-        '#ccffcc' # green - surplus
+        'ptt-good'
       end
     end
   end

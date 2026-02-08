@@ -22,26 +22,12 @@ class PttProjectHistory < ActiveRecord::Base
   validates :field_name, inclusion: { in: ALLOWED_FIELDS }
   validate :at_least_one_value_present
 
-  private
-
-  def at_least_one_value_present
-    return if old_value.present? || new_value.present?
-
-    errors.add(:base, 'At least one of old_value or new_value must be present')
-  end
-
-  public
-
   scope :sorted, -> { order(created_at: :desc) }
 
   def field_label
     FIELD_LABELS[field_name] || field_name
   end
 
-  # Format value for display based on field type
-  #
-  # @param value [String, nil] the value to format
-  # @return [String] formatted value
   def format_value(value)
     return '(не задано)' if value.blank?
 
@@ -81,5 +67,13 @@ class PttProjectHistory < ActiveRecord::Base
         created_at: Time.current
       )
     end
+  end
+
+  private
+
+  def at_least_one_value_present
+    return if old_value.present? || new_value.present?
+
+    errors.add(:base, 'At least one of old_value or new_value must be present')
   end
 end

@@ -1,0 +1,35 @@
+<% if project.module_enabled?(:support_contract) %>
+  <% project_products = project.sc_project_products.sorted.includes(:sc_product).to_a %>
+  <% if project_products.any? %>
+    <div class="box sc-contract-box">
+      <h3 class="icon icon-list">Support Contract</h3>
+      <table class="list sc-contract-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Expires on</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% project_products.each do |pp| %>
+            <tr class="<%= pp.status_class %>">
+              <td><%= h pp.sc_product.name %></td>
+              <td><%= format_date(pp.expires_on) %></td>
+              <td>
+                <% if pp.expired? %>
+                  <span class="sc-badge sc-badge-expired">Expired</span>
+                <% elsif pp.expiring_soon? %>
+                  <span class="sc-badge sc-badge-warning">Expiring soon</span>
+                <% else %>
+                  <span class="sc-badge sc-badge-active">Active</span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= stylesheet_link_tag 'support_contract', plugin: 'redmine_support_contract' %>
+  <% end %>
+<% end %>
