@@ -17,7 +17,7 @@
 %>
 <%= form_tag({}, data: {cm_url: projects_context_menu_path}) do -%>
   <%= hidden_field_tag 'back_url', url_for(params: request.query_parameters), id: nil %>
-  <div class="autoscroll ptt-table-scroll">
+  <div class="autoscroll">
     <table class="list projects odd-even <%= @query.css_classes %>">
       <thead>
       <tr>

@@ -1,16 +1,7 @@
 /* Projects Time Tracking Plugin Styles */
 
-/* Scrollable table container */
-.ptt-table-scroll {
-  overflow: auto;
-  max-height: calc(100vh - 200px);
-}
-
-.ptt-table-scroll table.projects {
-  margin-bottom: 0;
-}
-
-.ptt-table-scroll thead th {
+/* Sticky table header — works with natural page scroll */
+table.projects thead th {
   position: sticky;
   top: 0;
   z-index: 2;
