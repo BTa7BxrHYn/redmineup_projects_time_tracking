@@ -134,14 +134,22 @@
                   <%= format_metric_hours(ptt_metrics[:variance]) %>
                 </td>
               <% else %>
-                <td colspan="5" style="text-align: center; color: #999;" title="Бюджет не задан — метрики недоступны">—</td>
+                <td style="text-align: center; color: #999;" title="Бюджет не задан — метрики недоступны">—</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
               <% end %>
             <% end %>
           <% else %>
             <td></td>
             <td></td>
             <% if budget_cf_id %>
-              <td colspan="5"></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
             <% end %>
           <% end %>
           <% # /PATCHED %>
