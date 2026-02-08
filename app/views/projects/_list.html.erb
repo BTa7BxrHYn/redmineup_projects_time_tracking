@@ -66,7 +66,13 @@
             <% end %>
           </tr>
         <% end %>
-        <tr id="project-<%= entry.id %>" class="<%= cycle('odd', 'even') %> hascontextmenu <%= entry.css_classes %> <%= level > 0 ? "idnt idnt-#{level}" : nil %>">
+        <%
+          # Check if project has spent time but no budget configured
+          ptt_entry_spent = ptt_time_spent[entry.id] || 0
+          ptt_entry_budget = ptt_budgets[entry.id]
+          ptt_no_budget = budget_cf_id && ptt_entry_spent > 0 && (ptt_entry_budget.nil? || ptt_entry_budget <= 0)
+        %>
+        <tr id="project-<%= entry.id %>" class="<%= cycle('odd', 'even') %> hascontextmenu <%= entry.css_classes %> <%= level > 0 ? "idnt idnt-#{level}" : nil %> <%= 'ptt-no-budget' if ptt_no_budget %>">
           <% if @admin_list %>
             <% if !entry.scheduled_for_deletion? %>
               <td class="checkbox hide-when-print"><%= check_box_tag("ids[]", entry.id, false, :id => nil) %></td>
@@ -128,7 +134,7 @@
                   <%= format_metric_hours(ptt_metrics[:variance]) %>
                 </td>
               <% else %>
-                <td colspan="5" style="text-align: center; color: #999;">—</td>
+                <td colspan="5" style="text-align: center; color: #999;" title="Бюджет не задан — метрики недоступны">—</td>
               <% end %>
             <% end %>
           <% else %>

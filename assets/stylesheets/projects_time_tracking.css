@@ -19,6 +19,11 @@ table.projects td[title] {
   background-color: #ccffcc;
 }
 
+/* No budget but has spent time */
+.ptt-no-budget td {
+  background-color: #f0f0f0 !important;
+}
+
 /* History highlight in project list */
 .ptt-history-changed {
   background-color: #ffffcc;
