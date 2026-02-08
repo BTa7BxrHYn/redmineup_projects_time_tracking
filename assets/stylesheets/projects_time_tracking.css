@@ -1,5 +1,23 @@
 /* Projects Time Tracking Plugin Styles */
 
+/* Scrollable table container */
+.ptt-table-scroll {
+  overflow: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.ptt-table-scroll table.projects {
+  margin-bottom: 0;
+}
+
+.ptt-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: #eee;
+  box-shadow: inset 0 -1px 0 #d7d7d7;
+}
+
 /* Metric cells styling */
 table.projects td[title] {
   cursor: help;
