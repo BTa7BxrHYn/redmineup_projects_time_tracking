@@ -1,0 +1,159 @@
+en:
+  # ── Common ──
+  ptt_option_none: "-- None --"
+  ptt_no_data: "no data"
+  ptt_no_data_for_calc: "Not enough data to calculate"
+  ptt_user_deleted: "[deleted]"
+  ptt_value_unset: "(not set)"
+  ptt_hours_suffix: "%{value} h"
+  ptt_hours_short: "h"
+  ptt_error_value_required: "At least one of old_value or new_value must be present"
+
+  # ── Close/archive guard ──
+  ptt_error_close_blocked: "Cannot close the project: %{count} open issue(s) remain"
+  ptt_error_archive_blocked: "Cannot archive the project: %{count} open issue(s) remain"
+  ptt_confirm_close_blocked_js: "This project has %{count} open issue(s). Close them first."
+  ptt_close_guard_title: "Cannot close"
+  ptt_button_ok: "Got it"
+
+  # ── Metric names ──
+  ptt_metric_progress: "Progress"
+  ptt_metric_spent: "Spent"
+  ptt_metric_cpi: "CPI"
+  ptt_metric_eac: "EAC"
+  ptt_metric_eac_forecast: "EAC (forecast)"
+  ptt_metric_variance: "Variance"
+
+  # ── History field labels ──
+  ptt_field_start_date: "Project start"
+  ptt_field_end_date: "Project end"
+  ptt_field_budget: "Project budget"
+  ptt_field_comment: "Comment"
+
+  # ── Project list column titles ──
+  ptt_col_title_progress: "% of work completed (E_closed / E_total)"
+  ptt_col_title_spent: "% of budget spent (F / B)"
+  ptt_col_title_cpi: "CPI = E_closed / F (>=1 ok, <0.9 problem)"
+  ptt_col_title_eac: "Estimate at completion (E_total / CPI)"
+  ptt_col_title_variance: "Variance from budget (B - EAC)"
+  ptt_no_budget_metrics: "Budget not set — metrics unavailable"
+
+  # ── Budget box ──
+  ptt_budget_box_title: "Project budget"
+  ptt_label_budget_b: "Budget (B)"
+  ptt_label_e_total: "Estimates (E_total)"
+  ptt_label_e_closed: "Closed (E_closed)"
+  ptt_label_f: "Actual (F)"
+
+  # ── History box ──
+  ptt_history_title: "Change history"
+  ptt_history_recent_of: "(last %{limit} of %{total})"
+  ptt_history_empty: "No changes yet"
+  ptt_history_show_recent: "Show recent"
+  ptt_history_show_all: "All %{count} changes"
+  ptt_history_changes_label: "Change history:"
+  ptt_history_truncated: "Showing first %{count} changes (history is very long)"
+
+  # ── CPI status ──
+  ptt_cpi_status_no_data: "No data"
+  ptt_cpi_status_ok: "On track — within plan or saving"
+  ptt_cpi_status_warning: "Caution — slight overspend"
+  ptt_cpi_status_problem: "Problem — significant overspend"
+
+  # ── Variance status ──
+  ptt_variance_no_data: "No data"
+  ptt_variance_surplus: "Surplus: within budget"
+  ptt_variance_deficit: "Deficit: budget will fall short"
+  ptt_variance_exact: "Exactly on budget"
+
+  # ── Settings ──
+  ptt_settings_section_fields: "Project custom fields"
+  ptt_settings_budget_label: "Project budget (number):"
+  ptt_settings_budget_info: "Select a numeric field to store the budget in hours"
+  ptt_settings_start_date_label: "Project start (date):"
+  ptt_settings_end_date_label: "Project end (date):"
+  ptt_settings_optional_history_info: "Optional - for change history tracking"
+  ptt_settings_comment_label: "Project comment (text):"
+  ptt_settings_comment_info: "Optional - to record comment change history (no highlighting)"
+  ptt_settings_section_statuses: "Issue statuses"
+  ptt_settings_closed_statuses_label: 'Closed statuses (for E_closed calculation):'
+  ptt_settings_closed_statuses_info: "Select statuses that mean work on the issue is finished"
+  ptt_settings_closed_default: "(closed by default)"
+  ptt_settings_section_help: "Metrics reference"
+  ptt_help_th_metric: "Metric"
+  ptt_help_th_formula: "Formula"
+  ptt_help_th_description: "Description"
+  ptt_help_desc_progress: "% of work completed"
+  ptt_help_desc_spent: "% of budget spent"
+  ptt_help_desc_cpi: "Efficiency (>=1 ok, <0.9 problem)"
+  ptt_help_desc_eac: "Estimate at completion"
+  ptt_help_desc_variance: "Variance from budget (+ surplus, − deficit)"
+  ptt_help_legend_b: "budget (hours)"
+  ptt_help_legend_e_total: "sum of all issue estimates"
+  ptt_help_legend_e_closed: "sum of closed issue estimates"
+  ptt_help_legend_f: "actual logged time"
+
+  # ── Settings validation warnings ──
+  ptt_warn_budget_missing: "Selected budget field does not exist"
+  ptt_warn_budget_not_numeric: "Budget field must be numeric (current type: %{format})"
+  ptt_warn_budget_not_selected: "Budget field not selected - metrics will not be shown"
+  ptt_warn_start_date_missing: "Selected project start field does not exist"
+  ptt_warn_end_date_missing: "Selected project end field does not exist"
+  ptt_warn_start_date_type: "Start field must be of type 'date'"
+  ptt_warn_end_date_type: "End field must be of type 'date'"
+  ptt_warn_comment_missing: "Selected comment field does not exist"
+  ptt_warn_comment_type: "Comment field must be textual (current type: %{format})"
+  ptt_warn_no_closed_statuses: 'No "Closed" statuses selected - progress will always be 0%'
+  ptt_warn_statuses_deleted: "Some selected statuses were deleted (ID: %{ids})"
+
+  # ── Metric tooltips ──
+  ptt_tt_progress: |-
+    Progress (% of work completed)
+    ════════════════════════════════
+    Formula: E_closed / E_total × 100%
+    ════════════════════════════════
+    E_total (sum of estimates): %{e_total} h
+    E_closed (closed): %{e_closed} h
+    ════════════════════════════════
+    Calc: %{e_closed} / %{e_total} × 100% = %{result}
+  ptt_tt_spent: |-
+    Spent (% of budget used)
+    ════════════════════════════════
+    Formula: F / B × 100%
+    ════════════════════════════════
+    F (actual time): %{f} h
+    B (budget): %{budget} h
+    ════════════════════════════════
+    Calc: %{f} / %{budget} × 100% = %{result}
+  ptt_tt_cpi: |-
+    CPI — Efficiency
+    ════════════════════════════════
+    Formula: E_closed / F
+    ════════════════════════════════
+    E_closed: %{e_closed} h
+    F (actual): %{f} h
+    ════════════════════════════════
+    Calc: %{e_closed} / %{f} = %{cpi}
+    ════════════════════════════════
+    %{status_icon} %{status_text}
+  ptt_tt_eac: |-
+    EAC — Estimate at completion
+    ════════════════════════════════
+    Formula: E_total / CPI
+    ════════════════════════════════
+    E_total: %{e_total} h
+    CPI: %{cpi}
+    ════════════════════════════════
+    Calc: %{e_total} / %{cpi} = %{eac} h
+  ptt_tt_variance: |-
+    Variance — Variance from budget
+    ════════════════════════════════
+    Formula: B - EAC
+    ════════════════════════════════
+    B (budget): %{budget} h
+    EAC (forecast): %{eac} h
+    ════════════════════════════════
+    Calc: %{budget} - %{eac} = %{variance} h
+    (%{variance_percent})
+    ════════════════════════════════
+    %{status}

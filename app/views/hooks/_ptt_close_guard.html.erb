@@ -1,0 +1,21 @@
+<%#
+  Rendered on the project overview (view_projects_show_sidebar_bottom).
+  Emits the open-issue count and the modal markup only when closing is
+  relevant: the user can close the project AND it has open issues.
+  The expensive COUNT is skipped for users without the close_project permission
+  (which is the vast majority of project page visitors).
+%>
+<% ptt_guard_project = @project %>
+<% if ptt_guard_project && User.current.allowed_to?(:close_project, ptt_guard_project) %>
+  <%
+    ptt_open_count = ptt_guard_project.ptt_open_issue_count
+  %>
+  <% if ptt_open_count > 0 %>
+    <span id="ptt-close-guard-data"
+          data-open-issues="<%= ptt_open_count %>"
+          data-message="<%= h(l(:ptt_confirm_close_blocked_js, count: ptt_open_count)) %>"
+          style="display:none;"></span>
+
+    <%= render partial: 'hooks/ptt_guard_modal' %>
+  <% end %>
+<% end %>

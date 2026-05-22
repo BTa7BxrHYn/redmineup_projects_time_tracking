@@ -2,6 +2,10 @@
 
 module ProjectsTimeTrackingHelper
   PTT_HISTORY_LIMIT = 20
+  # Maximum number of records loaded in "show all" mode.
+  # Uses the limit+1 trick to detect truncation without a separate COUNT query.
+  PTT_HISTORY_MAX = 500
+
 
   # ===========================================================================
   # Settings and data loading helpers (to reduce code duplication)
@@ -104,9 +108,15 @@ module ProjectsTimeTrackingHelper
   # History helpers for projects list (optimized for thousands of projects)
   # ===========================================================================
 
-  # Returns histories grouped by project_id and field_name (batch query)
-  # Limits to last 5 entries per field for performance
+  PTT_HISTORY_PER_FIELD = 5
+
+  # Returns histories grouped by project_id and field_name (batch query).
+  # Keeps the most recent PTT_HISTORY_PER_FIELD entries per field per project.
   # Result: { project_id => { 'budget' => [...], 'start_date' => [...] } }
+  #
+  # No global LIMIT is used: the result set is naturally bounded by the page
+  # size (projects shown per page) times the highlightable field count, so a
+  # single very active project can no longer starve the others' history.
   def ptt_histories_for_projects(project_ids)
     return {} unless project_ids.any?
 
@@ -114,12 +124,10 @@ module ProjectsTimeTrackingHelper
       .where(project_id: project_ids, field_name: PttProjectHistory::HIGHLIGHTABLE_FIELDS)
       .select(:id, :project_id, :field_name, :old_value, :new_value, :created_at)
       .order(created_at: :desc)
-      .limit(project_ids.size * 15)
       .each_with_object({}) do |h, result|
-        result[h.project_id] ||= {}
-        result[h.project_id][h.field_name] ||= []
-        # Limit to 5 entries per field per project for tooltip
-        result[h.project_id][h.field_name] << h if result[h.project_id][h.field_name].size < 5
+        per_project = (result[h.project_id] ||= {})
+        bucket = (per_project[h.field_name] ||= [])
+        bucket << h if bucket.size < PTT_HISTORY_PER_FIELD
       end
   end
 
@@ -163,12 +171,53 @@ module ProjectsTimeTrackingHelper
       "#{h.formatted_old_value} → #{h.formatted_new_value}"
     end
 
-    "История изменений:\n#{lines.join("\n")}"
+    "#{l(:ptt_history_changes_label)}\n#{lines.join("\n")}"
   end
 
   # Returns highlight CSS class if field has history
   def ptt_cf_history_class(project_histories, cf_id)
     ptt_cf_has_history?(project_histories, cf_id) ? 'ptt-history-changed' : nil
+  end
+
+  # Computes highlight metadata for a project list column (extracted from the
+  # _list partial to keep that overridden core view as close to upstream as
+  # possible). Returns { highlight: bool, css_class:, title: }.
+  #
+  # +can_view+ must be pre-computed by the caller (User.current.allowed_to?(:view_time_entries, entry))
+  # to avoid a redundant permission check per column on every project row.
+  def ptt_column_history_meta(column, entry, project_histories, tracked_cf_ids, can_view)
+    cf_id = column.name.to_s.start_with?('cf_') ? column.name.to_s.sub('cf_', '') : nil
+    highlight = cf_id && tracked_cf_ids.include?(cf_id) &&
+                can_view &&
+                ptt_cf_has_history?(project_histories, cf_id)
+
+    {
+      highlight: highlight,
+      css_class: highlight ? ptt_cf_history_class(project_histories, cf_id) : nil,
+      title: highlight ? ptt_cf_history_tooltip(project_histories, cf_id) : nil
+    }
+  end
+
+  # ===========================================================================
+  # Admin project list: batch open-issue counts (Task B)
+  # ===========================================================================
+
+  # Returns a hash of { project_id => open_issue_count } for the given IDs.
+  # Uses a single GROUP BY query — no N+1.
+  #
+  # Counts DIRECT issues only (not the subproject tree). This is intentional:
+  # the data attribute is consumed by the JS UX guard only. The authoritative
+  # block lives in ProjectsControllerPatch#archive, which counts
+  # self_and_descendants. Known compromise: if a project's only open issues
+  # are in subprojects the popup will not appear, but the server flash still
+  # blocks the action (server guard is authoritative).
+  def ptt_open_issue_counts_for_projects(project_ids)
+    return {} unless project_ids.any?
+
+    closed_ids = ptt_closed_status_ids
+    scope = Issue.where(project_id: project_ids)
+    scope = closed_ids.any? ? scope.where.not(status_id: closed_ids) : scope.open
+    scope.group(:project_id).count
   end
 
   # ===========================================================================
@@ -188,12 +237,12 @@ module ProjectsTimeTrackingHelper
     if budget_cf_id.present?
       cf = cf_by_id[budget_cf_id.to_s]
       if cf.nil?
-        warnings << { type: :error, message: 'Выбранное поле бюджета не существует' }
+        warnings << { type: :error, message: l(:ptt_warn_budget_missing) }
       elsif !%w[float int].include?(cf.field_format)
-        warnings << { type: :warning, message: "Поле бюджета должно быть числовым (текущий тип: #{cf.field_format})" }
+        warnings << { type: :warning, message: l(:ptt_warn_budget_not_numeric, format: cf.field_format) }
       end
     else
-      warnings << { type: :info, message: 'Поле бюджета не выбрано - метрики не будут отображаться' }
+      warnings << { type: :info, message: l(:ptt_warn_budget_not_selected) }
     end
 
     # Validate date custom fields
@@ -203,9 +252,9 @@ module ProjectsTimeTrackingHelper
 
       cf = cf_by_id[cf_id.to_s]
       if cf.nil?
-        warnings << { type: :error, message: "Выбранное поле #{field == 'start_date' ? 'начала' : 'окончания'} проекта не существует" }
+        warnings << { type: :error, message: l(:"ptt_warn_#{field}_missing") }
       elsif cf.field_format != 'date'
-        warnings << { type: :warning, message: "Поле #{field == 'start_date' ? 'начала' : 'окончания'} должно быть типа 'дата'" }
+        warnings << { type: :warning, message: l(:"ptt_warn_#{field}_type") }
       end
     end
 
@@ -214,21 +263,21 @@ module ProjectsTimeTrackingHelper
     if comment_cf_id.present?
       cf = cf_by_id[comment_cf_id.to_s]
       if cf.nil?
-        warnings << { type: :error, message: 'Выбранное поле комментария не существует' }
+        warnings << { type: :error, message: l(:ptt_warn_comment_missing) }
       elsif !%w[text string].include?(cf.field_format)
-        warnings << { type: :warning, message: "Поле комментария должно быть текстовым (текущий тип: #{cf.field_format})" }
+        warnings << { type: :warning, message: l(:ptt_warn_comment_type, format: cf.field_format) }
       end
     end
 
     # Validate closed statuses
     closed_ids = Array(settings['closed_status_ids']).reject(&:blank?)
     if closed_ids.empty?
-      warnings << { type: :warning, message: 'Не выбраны статусы "Закрыто" - прогресс всегда будет 0%' }
+      warnings << { type: :warning, message: l(:ptt_warn_no_closed_statuses) }
     else
       existing_ids = IssueStatus.where(id: closed_ids).pluck(:id).map(&:to_s)
       missing = closed_ids.map(&:to_s) - existing_ids
       if missing.any?
-        warnings << { type: :error, message: "Некоторые выбранные статусы удалены (ID: #{missing.join(', ')})" }
+        warnings << { type: :error, message: l(:ptt_warn_statuses_deleted, ids: missing.join(', ')) }
       end
     end
 
@@ -265,13 +314,13 @@ module ProjectsTimeTrackingHelper
 
     raw = { budget: budget, e_total: e_total, e_closed: e_closed, f: f }
 
-    # Прогресс = E_closed / E_total × 100%
+    # Progress = E_closed / E_total × 100%
     progress = e_total > 0 ? (e_closed / e_total) * 100 : 0
 
-    # Освоение = F / B × 100%
+    # Spent = F / B × 100%
     spent = (f / budget) * 100
 
-    # CPI/EAC/Variance не вычисляются без фактических трудозатрат
+    # CPI/EAC/Variance cannot be computed without actual logged time
     if f == 0 || e_closed == 0
       return {
         progress: progress,
@@ -294,7 +343,7 @@ module ProjectsTimeTrackingHelper
     # Variance = B - EAC
     variance = budget - eac
 
-    # Отклонение% = (B - EAC) / B × 100%
+    # Variance% = (B - EAC) / B × 100%
     variance_percent = (variance / budget) * 100
 
     {
@@ -310,71 +359,52 @@ module ProjectsTimeTrackingHelper
 
   # Generates tooltip text for a specific metric
   def metric_tooltip(metric_name, metrics)
-    return 'Нет данных для расчёта' if metrics[:incomplete] && %i[cpi eac variance].include?(metric_name)
+    return l(:ptt_no_data_for_calc) if metrics[:incomplete] && %i[cpi eac variance].include?(metric_name)
 
     raw = metrics[:raw]
+    cpi = number_with_precision(metrics[:cpi], precision: 2)
+
     case metric_name
     when :progress
-      "Прогресс (% выполнения работы)\n" \
-      "════════════════════════════════\n" \
-      "Формула: E_closed / E_total × 100%\n" \
-      "════════════════════════════════\n" \
-      "E_total (сумма оценок): #{format_metric_hours(raw[:e_total])} ч\n" \
-      "E_closed (закрытые): #{format_metric_hours(raw[:e_closed])} ч\n" \
-      "════════════════════════════════\n" \
-      "Расчёт: #{format_metric_hours(raw[:e_closed])} / #{format_metric_hours(raw[:e_total])} × 100% = #{format_metric_percent(metrics[:progress])}"
+      l(:ptt_tt_progress,
+        e_total: format_metric_hours(raw[:e_total]),
+        e_closed: format_metric_hours(raw[:e_closed]),
+        result: format_metric_percent(metrics[:progress]))
     when :spent
-      "Освоение (% расхода бюджета)\n" \
-      "════════════════════════════════\n" \
-      "Формула: F / B × 100%\n" \
-      "════════════════════════════════\n" \
-      "F (факт. трудозатраты): #{format_metric_hours(raw[:f])} ч\n" \
-      "B (бюджет): #{format_metric_hours(raw[:budget])} ч\n" \
-      "════════════════════════════════\n" \
-      "Расчёт: #{format_metric_hours(raw[:f])} / #{format_metric_hours(raw[:budget])} × 100% = #{format_metric_percent(metrics[:spent])}"
+      l(:ptt_tt_spent,
+        f: format_metric_hours(raw[:f]),
+        budget: format_metric_hours(raw[:budget]),
+        result: format_metric_percent(metrics[:spent]))
     when :cpi
       status = cpi_status(metrics[:cpi])
-      "CPI — Эффективность\n" \
-      "════════════════════════════════\n" \
-      "Формула: E_closed / F\n" \
-      "════════════════════════════════\n" \
-      "E_closed: #{format_metric_hours(raw[:e_closed])} ч\n" \
-      "F (факт): #{format_metric_hours(raw[:f])} ч\n" \
-      "════════════════════════════════\n" \
-      "Расчёт: #{format_metric_hours(raw[:e_closed])} / #{format_metric_hours(raw[:f])} = #{number_with_precision(metrics[:cpi], precision: 2)}\n" \
-      "════════════════════════════════\n" \
-      "#{status[:icon]} #{status[:text]}"
+      l(:ptt_tt_cpi,
+        e_closed: format_metric_hours(raw[:e_closed]),
+        f: format_metric_hours(raw[:f]),
+        cpi: cpi,
+        status_icon: status[:icon],
+        status_text: status[:text])
     when :eac
-      "EAC — Прогноз итоговых затрат\n" \
-      "════════════════════════════════\n" \
-      "Формула: E_total / CPI\n" \
-      "════════════════════════════════\n" \
-      "E_total: #{format_metric_hours(raw[:e_total])} ч\n" \
-      "CPI: #{number_with_precision(metrics[:cpi], precision: 2)}\n" \
-      "════════════════════════════════\n" \
-      "Расчёт: #{format_metric_hours(raw[:e_total])} / #{number_with_precision(metrics[:cpi], precision: 2)} = #{format_metric_hours(metrics[:eac])} ч"
+      l(:ptt_tt_eac,
+        e_total: format_metric_hours(raw[:e_total]),
+        cpi: cpi,
+        eac: format_metric_hours(metrics[:eac]))
     when :variance
       variance = metrics[:variance]
       status = if variance.nil?
-                 "Нет данных"
+                 l(:ptt_variance_no_data)
                elsif variance > 0
-                 "Профицит: уложимся в бюджет"
+                 l(:ptt_variance_surplus)
                elsif variance < 0
-                 "Дефицит: бюджета не хватит"
+                 l(:ptt_variance_deficit)
                else
-                 "Точно по бюджету"
+                 l(:ptt_variance_exact)
                end
-      "Variance — Отклонение от бюджета\n" \
-      "════════════════════════════════\n" \
-      "Формула: B - EAC\n" \
-      "════════════════════════════════\n" \
-      "B (бюджет): #{format_metric_hours(raw[:budget])} ч\n" \
-      "EAC (прогноз): #{format_metric_hours(metrics[:eac])} ч\n" \
-      "════════════════════════════════\n" \
-      "Расчёт: #{format_metric_hours(raw[:budget])} - #{format_metric_hours(metrics[:eac])} = #{format_metric_hours(metrics[:variance])} ч\n" \
-      "(#{format_metric_percent(metrics[:variance_percent])})\n" \
-      "════════════════════════════════\n" \
-      "#{status}"
+      l(:ptt_tt_variance,
+        budget: format_metric_hours(raw[:budget]),
+        eac: format_metric_hours(metrics[:eac]),
+        variance: format_metric_hours(metrics[:variance]),
+        variance_percent: format_metric_percent(metrics[:variance_percent]),
+        status: status)
     else
       ''
     end
@@ -382,14 +412,14 @@ module ProjectsTimeTrackingHelper
 
   # CPI status with icon and text
   def cpi_status(cpi)
-    return { icon: '⚪', text: 'Нет данных' } if cpi.nil?
+    return { icon: '⚪', text: l(:ptt_cpi_status_no_data) } if cpi.nil?
 
     if cpi >= 1.0
-      { icon: '🟢', text: 'Норма — работаем по плану или экономим' }
+      { icon: '🟢', text: l(:ptt_cpi_status_ok) }
     elsif cpi >= 0.9
-      { icon: '🟡', text: 'Внимание — небольшой перерасход' }
+      { icon: '🟡', text: l(:ptt_cpi_status_warning) }
     else
-      { icon: '🔴', text: 'Проблема — значительный перерасход' }
+      { icon: '🔴', text: l(:ptt_cpi_status_problem) }
     end
   end
 

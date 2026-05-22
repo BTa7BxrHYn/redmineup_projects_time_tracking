@@ -1,0 +1,159 @@
+ru:
+  # ── Common ──
+  ptt_option_none: "-- Не выбрано --"
+  ptt_no_data: "нет данных"
+  ptt_no_data_for_calc: "Нет данных для расчёта"
+  ptt_user_deleted: "[удалён]"
+  ptt_value_unset: "(не задано)"
+  ptt_hours_suffix: "%{value} ч"
+  ptt_hours_short: "ч"
+  ptt_error_value_required: "Должно быть задано хотя бы одно из значений (старое или новое)"
+
+  # ── Close/archive guard ──
+  ptt_error_close_blocked: "Нельзя закрыть проект: не закрыто задач — %{count}"
+  ptt_error_archive_blocked: "Нельзя заархивировать проект: не закрыто задач — %{count}"
+  ptt_confirm_close_blocked_js: "У проекта %{count} незакрытых задач. Сначала закройте их."
+  ptt_close_guard_title: "Закрытие невозможно"
+  ptt_button_ok: "Понятно"
+
+  # ── Metric names ──
+  ptt_metric_progress: "Прогресс"
+  ptt_metric_spent: "Освоение"
+  ptt_metric_cpi: "CPI"
+  ptt_metric_eac: "EAC"
+  ptt_metric_eac_forecast: "EAC (прогноз)"
+  ptt_metric_variance: "Variance"
+
+  # ── History field labels ──
+  ptt_field_start_date: "Начало проекта"
+  ptt_field_end_date: "Окончание проекта"
+  ptt_field_budget: "Бюджет проекта"
+  ptt_field_comment: "Комментарий"
+
+  # ── Project list column titles ──
+  ptt_col_title_progress: "% выполнения работы (E_closed / E_total)"
+  ptt_col_title_spent: "% расхода бюджета (F / B)"
+  ptt_col_title_cpi: "CPI = E_closed / F (≥1 норма, <0.9 проблема)"
+  ptt_col_title_eac: "Прогноз итоговых затрат (E_total / CPI)"
+  ptt_col_title_variance: "Отклонение от бюджета (B - EAC)"
+  ptt_no_budget_metrics: "Бюджет не задан — метрики недоступны"
+
+  # ── Budget box ──
+  ptt_budget_box_title: "Бюджет проекта"
+  ptt_label_budget_b: "Бюджет (B)"
+  ptt_label_e_total: "Оценки (E_total)"
+  ptt_label_e_closed: "Закрыто (E_closed)"
+  ptt_label_f: "Факт (F)"
+
+  # ── History box ──
+  ptt_history_title: "История изменений"
+  ptt_history_recent_of: "(последние %{limit} из %{total})"
+  ptt_history_empty: "Изменений пока нет"
+  ptt_history_show_recent: "Показать последние"
+  ptt_history_show_all: "Все %{count} изменений"
+  ptt_history_changes_label: "История изменений:"
+  ptt_history_truncated: "Показаны первые %{count} записей (история очень длинная)"
+
+  # ── CPI status ──
+  ptt_cpi_status_no_data: "Нет данных"
+  ptt_cpi_status_ok: "Норма — работаем по плану или экономим"
+  ptt_cpi_status_warning: "Внимание — небольшой перерасход"
+  ptt_cpi_status_problem: "Проблема — значительный перерасход"
+
+  # ── Variance status ──
+  ptt_variance_no_data: "Нет данных"
+  ptt_variance_surplus: "Профицит: уложимся в бюджет"
+  ptt_variance_deficit: "Дефицит: бюджета не хватит"
+  ptt_variance_exact: "Точно по бюджету"
+
+  # ── Settings ──
+  ptt_settings_section_fields: "Кастомные поля проекта"
+  ptt_settings_budget_label: "Бюджет проекта (число):"
+  ptt_settings_budget_info: "Выберите числовое поле для хранения бюджета в часах"
+  ptt_settings_start_date_label: "Начало проекта (дата):"
+  ptt_settings_end_date_label: "Окончание проекта (дата):"
+  ptt_settings_optional_history_info: "Опционально - для отслеживания истории изменений"
+  ptt_settings_comment_label: "Комментарий проекта (текст):"
+  ptt_settings_comment_info: "Опционально - для сохранения истории изменений комментариев (без подсветки)"
+  ptt_settings_section_statuses: "Статусы задач"
+  ptt_settings_closed_statuses_label: 'Статусы "Закрыто" (для расчёта E_closed):'
+  ptt_settings_closed_statuses_info: "Выберите статусы, которые означают завершение работы над задачей"
+  ptt_settings_closed_default: "(закрыт по умолчанию)"
+  ptt_settings_section_help: "Справка по метрикам"
+  ptt_help_th_metric: "Метрика"
+  ptt_help_th_formula: "Формула"
+  ptt_help_th_description: "Описание"
+  ptt_help_desc_progress: "% завершённой работы"
+  ptt_help_desc_spent: "% израсходованного бюджета"
+  ptt_help_desc_cpi: "Эффективность (≥1 норма, <0.9 проблема)"
+  ptt_help_desc_eac: "Прогноз итоговых затрат"
+  ptt_help_desc_variance: "Отклонение от бюджета (+ профицит, − дефицит)"
+  ptt_help_legend_b: "бюджет (часы)"
+  ptt_help_legend_e_total: "сумма оценок всех задач"
+  ptt_help_legend_e_closed: "сумма оценок закрытых задач"
+  ptt_help_legend_f: "фактические трудозатраты"
+
+  # ── Settings validation warnings ──
+  ptt_warn_budget_missing: "Выбранное поле бюджета не существует"
+  ptt_warn_budget_not_numeric: "Поле бюджета должно быть числовым (текущий тип: %{format})"
+  ptt_warn_budget_not_selected: "Поле бюджета не выбрано - метрики не будут отображаться"
+  ptt_warn_start_date_missing: "Выбранное поле начала проекта не существует"
+  ptt_warn_end_date_missing: "Выбранное поле окончания проекта не существует"
+  ptt_warn_start_date_type: "Поле начала должно быть типа 'дата'"
+  ptt_warn_end_date_type: "Поле окончания должно быть типа 'дата'"
+  ptt_warn_comment_missing: "Выбранное поле комментария не существует"
+  ptt_warn_comment_type: "Поле комментария должно быть текстовым (текущий тип: %{format})"
+  ptt_warn_no_closed_statuses: 'Не выбраны статусы "Закрыто" - прогресс всегда будет 0%'
+  ptt_warn_statuses_deleted: "Некоторые выбранные статусы удалены (ID: %{ids})"
+
+  # ── Metric tooltips ──
+  ptt_tt_progress: |-
+    Прогресс (% выполнения работы)
+    ════════════════════════════════
+    Формула: E_closed / E_total × 100%
+    ════════════════════════════════
+    E_total (сумма оценок): %{e_total} ч
+    E_closed (закрытые): %{e_closed} ч
+    ════════════════════════════════
+    Расчёт: %{e_closed} / %{e_total} × 100% = %{result}
+  ptt_tt_spent: |-
+    Освоение (% расхода бюджета)
+    ════════════════════════════════
+    Формула: F / B × 100%
+    ════════════════════════════════
+    F (факт. трудозатраты): %{f} ч
+    B (бюджет): %{budget} ч
+    ════════════════════════════════
+    Расчёт: %{f} / %{budget} × 100% = %{result}
+  ptt_tt_cpi: |-
+    CPI — Эффективность
+    ════════════════════════════════
+    Формула: E_closed / F
+    ════════════════════════════════
+    E_closed: %{e_closed} ч
+    F (факт): %{f} ч
+    ════════════════════════════════
+    Расчёт: %{e_closed} / %{f} = %{cpi}
+    ════════════════════════════════
+    %{status_icon} %{status_text}
+  ptt_tt_eac: |-
+    EAC — Прогноз итоговых затрат
+    ════════════════════════════════
+    Формула: E_total / CPI
+    ════════════════════════════════
+    E_total: %{e_total} ч
+    CPI: %{cpi}
+    ════════════════════════════════
+    Расчёт: %{e_total} / %{cpi} = %{eac} ч
+  ptt_tt_variance: |-
+    Variance — Отклонение от бюджета
+    ════════════════════════════════
+    Формула: B - EAC
+    ════════════════════════════════
+    B (бюджет): %{budget} ч
+    EAC (прогноз): %{eac} ч
+    ════════════════════════════════
+    Расчёт: %{budget} - %{eac} = %{variance} ч
+    (%{variance_percent})
+    ════════════════════════════════
+    %{status}

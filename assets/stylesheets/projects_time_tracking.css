@@ -28,3 +28,44 @@ table.list tr.ptt-no-budget td {
 .ptt-history-changed {
   background-color: #ffffcc;
 }
+
+/* Close/archive guard modal */
+.ptt-modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+}
+
+.ptt-modal {
+  background: #fff;
+  border: 1px solid #bbb;
+  border-radius: 3px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  max-width: 460px;
+  width: 90%;
+  padding: 16px 20px;
+}
+
+.ptt-modal-title {
+  margin: 0 0 10px;
+  font-size: 1.1em;
+  color: #b00;
+}
+
+.ptt-close-guard-text {
+  margin: 0 0 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ptt-modal-buttons {
+  margin: 0;
+  text-align: right;
+}

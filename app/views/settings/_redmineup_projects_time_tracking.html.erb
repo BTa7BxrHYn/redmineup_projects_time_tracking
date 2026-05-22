@@ -14,67 +14,67 @@
 <% end %>
 
 <fieldset class="box">
-  <legend>Кастомные поля проекта</legend>
+  <legend><%= l(:ptt_settings_section_fields) %></legend>
 
   <p>
-    <label for="settings_budget_custom_field_id">Бюджет проекта (число):</label><br>
+    <label for="settings_budget_custom_field_id"><%= l(:ptt_settings_budget_label) %></label><br>
     <select name="settings[budget_custom_field_id]" id="settings_budget_custom_field_id">
-      <option value="">-- Не выбрано --</option>
+      <option value=""><%= l(:ptt_option_none) %></option>
       <% ProjectCustomField.where(field_format: ['float', 'int']).sorted.each do |cf| %>
         <option value="<%= cf.id %>" <%= 'selected' if settings['budget_custom_field_id'].to_s == cf.id.to_s %>>
           <%= cf.name %>
         </option>
       <% end %>
     </select>
-    <em class="info">Выберите числовое поле для хранения бюджета в часах</em>
+    <em class="info"><%= l(:ptt_settings_budget_info) %></em>
   </p>
 
   <p>
-    <label for="settings_start_date_custom_field_id">Начало проекта (дата):</label><br>
+    <label for="settings_start_date_custom_field_id"><%= l(:ptt_settings_start_date_label) %></label><br>
     <select name="settings[start_date_custom_field_id]" id="settings_start_date_custom_field_id">
-      <option value="">-- Не выбрано --</option>
+      <option value=""><%= l(:ptt_option_none) %></option>
       <% ProjectCustomField.where(field_format: 'date').sorted.each do |cf| %>
         <option value="<%= cf.id %>" <%= 'selected' if settings['start_date_custom_field_id'].to_s == cf.id.to_s %>>
           <%= cf.name %>
         </option>
       <% end %>
     </select>
-    <em class="info">Опционально - для отслеживания истории изменений</em>
+    <em class="info"><%= l(:ptt_settings_optional_history_info) %></em>
   </p>
 
   <p>
-    <label for="settings_end_date_custom_field_id">Окончание проекта (дата):</label><br>
+    <label for="settings_end_date_custom_field_id"><%= l(:ptt_settings_end_date_label) %></label><br>
     <select name="settings[end_date_custom_field_id]" id="settings_end_date_custom_field_id">
-      <option value="">-- Не выбрано --</option>
+      <option value=""><%= l(:ptt_option_none) %></option>
       <% ProjectCustomField.where(field_format: 'date').sorted.each do |cf| %>
         <option value="<%= cf.id %>" <%= 'selected' if settings['end_date_custom_field_id'].to_s == cf.id.to_s %>>
           <%= cf.name %>
         </option>
       <% end %>
     </select>
-    <em class="info">Опционально - для отслеживания истории изменений</em>
+    <em class="info"><%= l(:ptt_settings_optional_history_info) %></em>
   </p>
 
   <p>
-    <label for="settings_comment_custom_field_id">Комментарий проекта (текст):</label><br>
+    <label for="settings_comment_custom_field_id"><%= l(:ptt_settings_comment_label) %></label><br>
     <select name="settings[comment_custom_field_id]" id="settings_comment_custom_field_id">
-      <option value="">-- Не выбрано --</option>
+      <option value=""><%= l(:ptt_option_none) %></option>
       <% ProjectCustomField.where(field_format: %w[text string]).sorted.each do |cf| %>
         <option value="<%= cf.id %>" <%= 'selected' if settings['comment_custom_field_id'].to_s == cf.id.to_s %>>
           <%= cf.name %>
         </option>
       <% end %>
     </select>
-    <em class="info">Опционально - для сохранения истории изменений комментариев (без подсветки)</em>
+    <em class="info"><%= l(:ptt_settings_comment_info) %></em>
   </p>
 </fieldset>
 
 <fieldset class="box">
-  <legend>Статусы задач</legend>
+  <legend><%= l(:ptt_settings_section_statuses) %></legend>
 
   <p>
-    <label>Статусы "Закрыто" (для расчёта E_closed):</label>
-    <em class="info">Выберите статусы, которые означают завершение работы над задачей</em>
+    <label><%= l(:ptt_settings_closed_statuses_label) %></label>
+    <em class="info"><%= l(:ptt_settings_closed_statuses_info) %></em>
   </p>
 
   <% IssueStatus.sorted.each do |status| %>
@@ -85,7 +85,7 @@
       <label for="settings_closed_status_ids_<%= status.id %>" style="margin-left: 5px;">
         <%= status.name %>
         <% if status.is_closed? %>
-          <span style="color: #999; font-size: 0.9em;">(закрыт по умолчанию)</span>
+          <span style="color: #999; font-size: 0.9em;"><%= l(:ptt_settings_closed_default) %></span>
         <% end %>
       </label>
     </p>
@@ -94,47 +94,47 @@
 </fieldset>
 
 <fieldset class="box">
-  <legend>Справка по метрикам</legend>
+  <legend><%= l(:ptt_settings_section_help) %></legend>
   <table class="list" style="width: auto;">
     <thead>
       <tr>
-        <th>Метрика</th>
-        <th>Формула</th>
-        <th>Описание</th>
+        <th><%= l(:ptt_help_th_metric) %></th>
+        <th><%= l(:ptt_help_th_formula) %></th>
+        <th><%= l(:ptt_help_th_description) %></th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td><strong>Прогресс</strong></td>
+        <td><strong><%= l(:ptt_metric_progress) %></strong></td>
         <td><code>E_closed / E_total × 100%</code></td>
-        <td>% завершённой работы</td>
+        <td><%= l(:ptt_help_desc_progress) %></td>
       </tr>
       <tr>
-        <td><strong>Освоение</strong></td>
+        <td><strong><%= l(:ptt_metric_spent) %></strong></td>
         <td><code>F / B × 100%</code></td>
-        <td>% израсходованного бюджета</td>
+        <td><%= l(:ptt_help_desc_spent) %></td>
       </tr>
       <tr>
-        <td><strong>CPI</strong></td>
+        <td><strong><%= l(:ptt_metric_cpi) %></strong></td>
         <td><code>E_closed / F</code></td>
-        <td>Эффективность (≥1 норма, &lt;0.9 проблема)</td>
+        <td><%= l(:ptt_help_desc_cpi) %></td>
       </tr>
       <tr>
-        <td><strong>EAC</strong></td>
+        <td><strong><%= l(:ptt_metric_eac) %></strong></td>
         <td><code>E_total / CPI</code></td>
-        <td>Прогноз итоговых затрат</td>
+        <td><%= l(:ptt_help_desc_eac) %></td>
       </tr>
       <tr>
-        <td><strong>Variance</strong></td>
+        <td><strong><%= l(:ptt_metric_variance) %></strong></td>
         <td><code>B - EAC</code></td>
-        <td>Отклонение от бюджета (+ профицит, − дефицит)</td>
+        <td><%= l(:ptt_help_desc_variance) %></td>
       </tr>
     </tbody>
   </table>
   <p style="margin-top: 10px; color: #666; font-size: 0.9em;">
-    <strong>B</strong> = бюджет (часы),
-    <strong>E_total</strong> = сумма оценок всех задач,
-    <strong>E_closed</strong> = сумма оценок закрытых задач,
-    <strong>F</strong> = фактические трудозатраты
+    <strong>B</strong> = <%= l(:ptt_help_legend_b) %>,
+    <strong>E_total</strong> = <%= l(:ptt_help_legend_e_total) %>,
+    <strong>E_closed</strong> = <%= l(:ptt_help_legend_e_closed) %>,
+    <strong>F</strong> = <%= l(:ptt_help_legend_f) %>
   </p>
 </fieldset>

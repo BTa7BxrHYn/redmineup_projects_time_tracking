@@ -1,3 +1,14 @@
+<%#
+  OVERRIDE of Redmine core app/views/projects/_list.html.erb (Redmine 5.1.x).
+  This is a copy of the upstream partial with three `# PATCHED` regions:
+    1. preload block (top)         — batch-loads budgets/issues/time/history
+    2. extra <th> column headers   — Estimated/Spent + budget metrics
+    3. per-row metric/history <td> — time tracking columns and CF highlight
+  WHEN UPGRADING REDMINE: diff this file against the new upstream
+  app/views/projects/_list.html.erb and re-apply only the PATCHED regions.
+  Row-level history logic lives in ProjectsTimeTrackingHelper#ptt_column_history_meta
+  to keep the rest of this template close to upstream.
+%>
 <% @admin_list = User.current.admin? && controller_name == 'admin' && action_name == 'projects' %>
 <%= render_query_totals(@query) %>
 <%
@@ -13,6 +24,11 @@
   # Load histories for all projects (for highlighting custom fields)
   ptt_all_histories = ptt_histories_for_projects(project_ids)
   ptt_tracked_cf_ids = ptt_cf_to_field_mapping.keys
+
+  # Load open-issue counts for admin list (one GROUP BY query, no N+1).
+  # Used to populate data-ptt-open-issues on each <tr> so the JS guard
+  # can read the count without additional requests.
+  ptt_open_counts = @admin_list ? ptt_open_issue_counts_for_projects(project_ids) : {}
   # /PATCHED
 %>
 <%= form_tag({}, data: {cm_url: projects_context_menu_path}) do -%>
@@ -37,11 +53,11 @@
         <th><%= l(:field_estimated_hours) %></th>
         <th><%= l(:label_spent_time) %></th>
         <% if budget_cf_id %>
-          <th title="% выполнения работы (E_closed / E_total)">Прогресс</th>
-          <th title="% расхода бюджета (F / B)">Освоение</th>
-          <th title="CPI = E_closed / F (≥1 норма, <0.9 проблема)">CPI</th>
-          <th title="Прогноз итоговых затрат (E_total / CPI)">EAC</th>
-          <th title="Отклонение от бюджета (B - EAC)">Variance</th>
+          <th title="<%= l(:ptt_col_title_progress) %>"><%= l(:ptt_metric_progress) %></th>
+          <th title="<%= l(:ptt_col_title_spent) %>"><%= l(:ptt_metric_spent) %></th>
+          <th title="<%= l(:ptt_col_title_cpi) %>"><%= l(:ptt_metric_cpi) %></th>
+          <th title="<%= l(:ptt_col_title_eac) %>"><%= l(:ptt_metric_eac) %></th>
+          <th title="<%= l(:ptt_col_title_variance) %>"><%= l(:ptt_metric_variance) %></th>
         <% end %>
         <% # /PATCHED %>
       </tr>
@@ -51,7 +67,9 @@
         <% if group_name %>
           <% reset_cycle %>
           <tr class="group open">
-            <td colspan="<%= @query.inline_columns.size + 2 + (budget_cf_id ? 5 : 0) %>">
+            <%# colspan covers: leading admin checkbox (+1) + inline columns + Estimated/Spent (+2) + budget metrics (+5);
+                the trailing admin buttons column is rendered as a separate <td> below %>
+            <td colspan="<%= @query.inline_columns.size + 2 + (budget_cf_id ? 5 : 0) + (@admin_list ? 1 : 0) %>">
               <span class="expander icon icon-expanded" onclick="toggleRowGroup(this);">&nbsp;</span>
               <span class="name"><%= group_name %></span>
               <% if group_count %>
@@ -71,8 +89,12 @@
           ptt_entry_spent = ptt_time_spent[entry.id] || 0
           ptt_entry_budget = ptt_budgets[entry.id]
           ptt_no_budget = budget_cf_id && ptt_entry_spent > 0 && (ptt_entry_budget.nil? || ptt_entry_budget <= 0)
+
+          # Compute view_time_entries permission once per project row to avoid
+          # redundant allowed_to? calls (helper + metrics branch both need it).
+          ptt_can_view = User.current.allowed_to?(:view_time_entries, entry)
         %>
-        <tr id="project-<%= entry.id %>" class="<%= cycle('odd', 'even') %> hascontextmenu <%= entry.css_classes %> <%= level > 0 ? "idnt idnt-#{level}" : nil %> <%= 'ptt-no-budget' if ptt_no_budget %>">
+        <tr id="project-<%= entry.id %>" class="<%= cycle('odd', 'even') %> hascontextmenu <%= entry.css_classes %> <%= level > 0 ? "idnt idnt-#{level}" : nil %> <%= 'ptt-no-budget' if ptt_no_budget %>"<% if @admin_list %> data-ptt-open-issues="<%= ptt_open_counts[entry.id].to_i %>"<% end %>>
           <% if @admin_list %>
             <% if !entry.scheduled_for_deletion? %>
               <td class="checkbox hide-when-print"><%= check_box_tag("ids[]", entry.id, false, :id => nil) %></td>
@@ -85,17 +107,9 @@
             ptt_project_hist = ptt_all_histories[entry.id]
           %>
           <% @query.inline_columns.each do |column| %>
-            <%
-              # Check if column is a tracked custom field with history
-              cf_id = column.name.to_s.start_with?('cf_') ? column.name.to_s.sub('cf_', '') : nil
-              has_history = cf_id && ptt_tracked_cf_ids.include?(cf_id) &&
-                            User.current.allowed_to?(:view_time_entries, entry) &&
-                            ptt_cf_has_history?(ptt_project_hist, cf_id)
-              history_class = has_history ? ptt_cf_history_class(ptt_project_hist, cf_id) : nil
-              history_title = has_history ? ptt_cf_history_tooltip(ptt_project_hist, cf_id) : nil
-            %>
-            <% if has_history %>
-              <td class="<%= column.css_classes %> <%= history_class %>" title="<%= h(history_title) %>">
+            <% ptt_meta = ptt_column_history_meta(column, entry, ptt_project_hist, ptt_tracked_cf_ids, ptt_can_view) %>
+            <% if ptt_meta[:highlight] %>
+              <td class="<%= column.css_classes %> <%= ptt_meta[:css_class] %>" title="<%= h(ptt_meta[:title]) %>">
                 <%= column_content(column, entry) %>
               </td>
             <% else %>
@@ -103,7 +117,7 @@
             <% end %>
           <% end %>
           <% # PATCHED - Time tracking and metrics columns %>
-          <% if User.current.allowed_to?(:view_time_entries, entry) %>
+          <% if ptt_can_view %>
             <%
               ptt_project_issues = ptt_issues_data[entry.id] || ptt_empty_issues_data
               ptt_spent = ptt_time_spent[entry.id] || 0
@@ -134,7 +148,7 @@
                   <%= format_metric_hours(ptt_metrics[:variance]) %>
                 </td>
               <% else %>
-                <td style="text-align: center; color: #999;" title="Бюджет не задан — метрики недоступны">—</td>
+                <td style="text-align: center; color: #999;" title="<%= l(:ptt_no_budget_metrics) %>">—</td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -185,3 +199,14 @@
   <% end %>
 </div>
 <%= context_menu if @admin_list %>
+
+<% if @admin_list %>
+  <%# Message template for JS guard on admin list. The placeholder __COUNT__ is
+      replaced at runtime by the delegated click handler with the actual count
+      read from data-ptt-open-issues on the clicked row. Using a data attribute
+      keeps the translated string on the server side (no JS string injection). %>
+  <span id="ptt-guard-msg-template"
+        data-template="<%= h(l(:ptt_confirm_close_blocked_js, count: '__COUNT__')) %>"
+        style="display:none;"></span>
+  <%= render partial: 'hooks/ptt_guard_modal' %>
+<% end %>

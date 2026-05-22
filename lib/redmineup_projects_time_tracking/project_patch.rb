@@ -5,7 +5,29 @@ module RedmineupProjectsTimeTracking
     extend ActiveSupport::Concern
 
     included do
-      has_many :ptt_histories, class_name: 'PttProjectHistory', dependent: :destroy
+      # delete_all is safe here: PttProjectHistory has no destroy callbacks,
+      # and bulk deletion is significantly faster than per-record destroy calls.
+      has_many :ptt_histories, class_name: 'PttProjectHistory', dependent: :delete_all
+    end
+
+    # Number of open (not closed) issues in this project and all its
+    # subprojects. Used to block closing/archiving a project that still has
+    # unfinished work. Counts all issues (not only those visible to the current
+    # user), since closing/archiving is an administrative action.
+    #
+    # Definition of "open" is kept consistent with the plugin's progress metrics:
+    #   - If closed_status_ids are configured in plugin settings, issues whose
+    #     status_id is NOT in that list are counted as open.
+    #   - Otherwise falls back to the Redmine core Issue.open scope
+    #     (is_closed = false on the issue status record).
+    def ptt_open_issue_count
+      settings = Setting.plugin_redmineup_projects_time_tracking || {}
+      closed_ids = Array(settings['closed_status_ids'])
+                   .filter_map { |id| Integer(id) rescue nil }
+                   .reject(&:zero?)
+
+      scope = Issue.where(project_id: self_and_descendants)
+      closed_ids.any? ? scope.where.not(status_id: closed_ids).count : scope.open.count
     end
   end
 

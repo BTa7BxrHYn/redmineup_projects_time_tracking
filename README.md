@@ -148,6 +148,39 @@ MIT License
 
 ## Changelog
 
+### 0.8.0
+- Task A: helper scoped to ProjectsController/AdminController/SettingsController via controller.helper() inside to_prepare; removed global ActionView::Base.include
+- Task B: open-issue guard popup now works on /admin/projects (archive from context menu); delegated capture-phase JS handler replaces DOMContentLoaded approach; shared modal partial extracted to hooks/_ptt_guard_modal.html.erb; batch ptt_open_issue_counts_for_projects query added to helper
+- Task C: multiline title= newlines confirmed as browser-native feature, no code change needed
+
+
+### 0.7.0
+- Security: open-issue COUNT skipped for users without close_project permission (_ptt_close_guard.html.erb)
+- Consistency: ptt_open_issue_count now uses plugin's closed_status_ids setting (same definition as progress metrics)
+- Performance: single allowed_to?(:view_time_entries) per project row in _list.html.erb (was one call per column)
+- Performance: archive link guard scoped to #content .contextual block in JS (no longer global)
+- Reliability: all patches applied exclusively inside Rails.application.config.to_prepare (removed double-apply risk)
+- Performance: "show all" history uses limit+1 trick — no separate COUNT; truncation notice shown if > 500 records
+- Correctness: has_many :ptt_histories changed to dependent: :delete_all (no callbacks, faster bulk delete)
+- i18n: added ptt_history_truncated key (en + ru)
+
+### 0.6.0
+- Запрет закрытия и архивации проекта при наличии незакрытых задач (в проекте и подпроектах)
+- Модальный попап со счётчиком незакрытых задач на странице проекта
+- Серверная защита через патч `ProjectsController` (UI + API), JS-попап как UX-слой
+
+### 0.5.0
+- Полная локализация интерфейса (i18n): добавлены `config/locales/ru.yml` и `en.yml`, убран хардкод текста
+- Добавлены unit-тесты метрик и истории (`test/unit/`)
+- Миграция 006: внешний ключ user с `ON DELETE SET NULL` (удалённые пользователи в истории)
+- Гарантия «5 записей на поле на проект» в подсветке истории списка (убран ненадёжный глобальный LIMIT)
+- Исправлен colspan групповой строки в admin-списке проектов
+- Логика подсветки строки вынесена в helper, добавлена защита от drift при апгрейде Redmine
+
+### 0.4.0
+- Прокручиваемая таблица истории, серая подсветка проектов без бюджета
+- Отслеживание поля комментария, исправления вёрстки таблицы
+
 ### 0.3.0
 - Добавлена пагинация истории изменений
 - Добавлена валидация настроек плагина

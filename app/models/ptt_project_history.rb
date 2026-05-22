@@ -8,11 +8,13 @@ class PttProjectHistory < ActiveRecord::Base
   # Fields that trigger yellow highlighting in the project list
   HIGHLIGHTABLE_FIELDS = %w[budget start_date end_date].freeze
 
-  FIELD_LABELS = {
-    'start_date' => 'Начало проекта',
-    'end_date' => 'Окончание проекта',
-    'budget' => 'Бюджет проекта',
-    'comment' => 'Комментарий'
+  # Maps a field_name to its i18n label key. Labels are resolved per request
+  # (not frozen at load time) so they honour the current UI locale.
+  FIELD_LABEL_KEYS = {
+    'start_date' => :ptt_field_start_date,
+    'end_date' => :ptt_field_end_date,
+    'budget' => :ptt_field_budget,
+    'comment' => :ptt_field_comment
   }.freeze
 
   belongs_to :project
@@ -25,11 +27,12 @@ class PttProjectHistory < ActiveRecord::Base
   scope :sorted, -> { order(created_at: :desc) }
 
   def field_label
-    FIELD_LABELS[field_name] || field_name
+    key = FIELD_LABEL_KEYS[field_name]
+    key ? I18n.t(key) : field_name
   end
 
   def format_value(value)
-    return '(не задано)' if value.blank?
+    return I18n.t(:ptt_value_unset) if value.blank?
 
     case field_name
     when 'start_date', 'end_date'
@@ -39,7 +42,7 @@ class PttProjectHistory < ActiveRecord::Base
         value
       end
     when 'budget'
-      "#{value} ч"
+      I18n.t(:ptt_hours_suffix, value: value)
     when 'comment'
       value.to_s
     else
@@ -74,6 +77,6 @@ class PttProjectHistory < ActiveRecord::Base
   def at_least_one_value_present
     return if old_value.present? || new_value.present?
 
-    errors.add(:base, 'At least one of old_value or new_value must be present')
+    errors.add(:base, I18n.t(:ptt_error_value_required))
   end
 end
